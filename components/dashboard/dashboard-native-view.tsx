@@ -2,22 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
-import GridLayoutLib, {
-  Responsive as ResponsiveGridLayout,
-  WidthProvider as GridLayoutWidthProvider,
-} from 'react-grid-layout';
-const GridLayout = GridLayoutLib;
-const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import type { DashboardTabsData } from '@/types/dashboard';
 import { initializeTabsData } from './tabs/tab-utils';
 import { TabBar } from './tabs/TabBar';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,7 +15,6 @@ import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
 import { type AppliedFilters, type DashboardFilterConfig } from '@/types/dashboard-filters';
 import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
-import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { ShareModal } from '@/components/share/ShareModal';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -39,80 +27,25 @@ import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
-import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
-import {
-  markDashboardShared,
-  type WalkthroughStage,
-} from '@/components/onboarding/insight-walkthrough-constants';
-
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
+import { SCREEN_SIZES, type ScreenSizeKey } from '@/components/dashboard/grid/grid-constants';
+import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
 import { DashboardViewHeader } from '@/components/dashboard/view/DashboardViewHeader';
+import { useDashboardShareFlow } from '@/components/dashboard/view/useDashboardShareFlow';
+import { useViewContainerWidth } from '@/components/dashboard/view/useViewContainerWidth';
+import { DashboardViewGrid } from '@/components/dashboard/view/DashboardViewGrid';
 import {
-  GRID_BREAKPOINTS,
-  GRID_COLS,
-  GRID_CONTAINER_PADDING,
-  GRID_MARGIN,
-  GRID_ROW_HEIGHT,
-  SCREEN_SIZES,
-  type ScreenSizeKey,
-} from '@/components/dashboard/grid/grid-constants';
+  DashboardViewLoading,
+  DashboardViewNotFound,
+} from '@/components/dashboard/view/DashboardViewStates';
+import { DashboardCanvasStyles } from '@/components/dashboard/view/DashboardCanvasStyles';
 
-/**
- * Walkthrough stages whose coachmark target lives INSIDE the share dialog — those keep their
- * spotlight while the dialog is open; every other stage's is suppressed.
- */
-const SHARE_DIALOG_COACHMARK_STAGES: WalkthroughStage[] = [
-  'share_public_toggle',
-  'share_copy_link',
-];
-
-/** Stages the share dialog can be opened FROM — either routes on into the dialog's own steps. */
-const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle'];
-
-/**
- * Every stage from which copying the public link is the walkthrough's final act. Not just
- * 'share_copy_link': a dashboard that was already public never fires the sharing handler, so
- * the stage can still be one of the earlier two when the user copies.
- */
-const SHARE_TAIL_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle', 'share_copy_link'];
-
-// Get current viewport screen size category
-function getCurrentScreenSize(): ScreenSizeKey {
-  if (typeof window === 'undefined') return 'desktop';
-
-  const width = window.innerWidth;
-  if (width >= 1200) return 'desktop';
-  if (width >= 768) return 'tablet';
-  if (width >= 480) return 'tablet'; // Large mobile treated as tablet
-  return 'mobile';
-}
-
-// Helper function to generate responsive layouts with preview screen size focus
-// With fixed 12 columns (Superset-style), all breakpoints use the same layout
-function generateResponsiveLayoutsForPreview(
-  layout: any[],
-  _previewScreenSize: ScreenSizeKey
-): any {
-  const layouts: any = {};
-
-  // Since all breakpoints use 12 columns (Superset-style),
-  // the same layout works for all screen sizes - columns just scale in width
-  Object.keys(GRID_COLS).forEach((breakpoint) => {
-    // Use the same layout for all breakpoints - the grid columns scale with container width
-    layouts[breakpoint] = layout.map((item) => ({
-      ...item,
-      // Ensure valid constraints
-      w: Math.max(1, Math.min(item.w, 12)),
-      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
-      y: Math.max(0, item.y),
-      minW: Math.max(1, Math.min(item.minW || 1, 12)),
-      minH: item.minH || 1,
-      maxW: 12,
-    }));
-  });
-
-  return layouts;
-}
+// After filter panel collapse, ECharts still sees the pre-animation container width.
+// Wait for the slide transition (duration-300) to finish before firing resize so all
+// chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+const FILTER_PANEL_TRANSITION_MS = 350;
+/** The refresh spinner stays this long after the refetch resolves. */
+const REFRESH_SPINNER_MS = 500;
 
 interface DashboardNativeViewProps {
   dashboardId: number;
@@ -160,8 +93,6 @@ export function DashboardNativeView({
   canModerateComments = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
-  const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
-    useOpenShareDeepLink();
   const widgetNavigationSource = isReportMode
     ? WIDGET_NAVIGATION_SOURCES.REPORT
     : WIDGET_NAVIGATION_SOURCES.DASHBOARD;
@@ -182,19 +113,10 @@ export function DashboardNativeView({
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [actualContainerWidth, setActualContainerWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1200
-  );
-  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [shareModalOpen, setShareModalOpen] = useState(initialShareModalOpen);
-  // Walkthrough only — the "you're officially live" beat, after the public link is copied.
-  const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
-  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
-
+  const [, setCurrentBreakpoint] = useState('lg');
   const [previewScreenSize] = useState<ScreenSizeKey | null>(null);
-  // Filters panel collapse state
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
-
+  // Filters panel collapse state (set, never read — kept: its setter re-renders as before)
+  const [, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
   // Tabs state for view mode - only need to track active tab for switching
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
@@ -230,28 +152,7 @@ export function DashboardNativeView({
   const dashboard =
     (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
 
-  // The share dialog gets no coachmark of its own while the user is finding their way around
-  // it, so the spotlight hides (same pattern as the KPI/chart picker modals in
-  // dashboard-builder-v2) — except for the two stages whose targets are inside this very
-  // dialog: the Public Access switch and, once that's on, the copy button.
-  useEffect(() => {
-    useInsightWalkthroughStore
-      .getState()
-      .setSuppressCoachmark(
-        shareModalOpen && !SHARE_DIALOG_COACHMARK_STAGES.includes(walkthroughStage!)
-      );
-    // Opening the dialog is what completes the 'share' step. Where it goes next depends on the
-    // dashboard: a private one needs the Public Access switch flipped, an ALREADY-public one
-    // has nothing to flip, so it goes straight to the copy button. Without that second case
-    // the walkthrough parks on a switch that is already on, the sharing handler (its only way
-    // forward) never fires, and the flow can never reach finish() — nothing written to the
-    // backend, no tick on the Get Started checklist.
-    if (shareModalOpen && SHARE_DIALOG_ENTRY_STAGES.includes(walkthroughStage!)) {
-      useInsightWalkthroughStore
-        .getState()
-        .advanceIfBefore(dashboard?.is_public ? 'share_copy_link' : 'share_public_toggle');
-    }
-  }, [shareModalOpen, walkthroughStage, dashboard?.is_public]);
+  const share = useDashboardShareFlow({ dashboard, refreshDashboard: mutate });
 
   // Org logo for fullscreen overlays:
   // - Private mode: user is logged in, auth store has the org logo
@@ -294,7 +195,8 @@ export function DashboardNativeView({
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
-  const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
+
+  const { actualContainerWidth } = useViewContainerWidth(dashboardContainerRef);
 
   // Use preview size if set, otherwise fall back to target size
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
@@ -333,11 +235,6 @@ export function DashboardNativeView({
     setActiveTabId(tabId);
   }, []);
 
-  // After filter panel collapse, ECharts still sees the pre-animation container width.
-  // Wait for the slide transition (duration-300) to finish before firing resize so all
-  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
-  const FILTER_PANEL_TRANSITION_MS = 350;
-
   const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
     setIsFiltersCollapsed(collapsed);
     setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
@@ -354,54 +251,6 @@ export function DashboardNativeView({
   // now lives on the live dashboard route only (app/dashboards/[id]/page.tsx) so each page
   // fires exactly its own view event.
 
-  // Update current screen size on resize
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const newScreenSize = getCurrentScreenSize();
-      setCurrentScreenSize(newScreenSize);
-    };
-
-    // Initial measurement
-    updateScreenSize();
-
-    // Update on window resize with debouncing
-    let resizeTimeout: NodeJS.Timeout;
-    const debouncedResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(updateScreenSize, 150);
-    };
-
-    window.addEventListener('resize', debouncedResize);
-
-    return () => {
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', debouncedResize);
-    };
-  }, []);
-
-  // Observe dashboard container for responsive width
-  useEffect(() => {
-    if (!dashboardContainerRef.current) return;
-
-    // Set initial width
-    const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;
-    setActualContainerWidth(initialWidth);
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width } = entry.contentRect;
-        // Use full available container width
-        setActualContainerWidth(width);
-      }
-    });
-
-    resizeObserver.observe(dashboardContainerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
   // Handle fullscreen toggle - use unified fullscreen system
   const handleToggleFullscreen = () => {
     if (containerRef.current) {
@@ -414,56 +263,11 @@ export function DashboardNativeView({
     router.push(`/dashboards/${dashboardId}/edit`);
   };
 
-  // Handle share
-  const handleShare = () => {
-    setShareModalOpen(true);
-  };
-
-  // Handle share modal close
-  const handleShareModalClose = () => {
-    setShareModalOpen(false);
-    clearShareDeepLink();
-  };
-
-  // Handle dashboard update after sharing changes
-  const handleDashboardUpdate = () => {
-    mutate(); // Refresh the dashboard data
-  };
-
-  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
-  // General access flips to Public, and that is what moves the walkthrough on — same trick
-  // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
-  // points at the copy button inside it.
-  const handleMadePublic = useCallback(() => {
-    markDashboardShared();
-    const walkthrough = useInsightWalkthroughStore.getState();
-    // Either stage can be live here: 'share_public_toggle' normally, or 'share' if the user
-    // reached the access picker without the dialog-open effect having run (a resumed flow).
-    if (walkthrough.active) walkthrough.advanceIfBefore('share_copy_link');
-  }, []);
-
-  // Copying the link is the walkthrough's last action — the flow ends on a celebration
-  // rather than a toast, and stays put so the user is looking at what they just built.
-  const handleCopyLink = useCallback(() => {
-    // The share itself. Fired before the walkthrough branch so it lands on every copy,
-    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateGeneralAccess)
-    // only means the link exists; this means the user actually handed it out.
-    // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
-    // and it is a real id here (the modal only renders outside public mode).
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: dashboard?.id });
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && SHARE_TAIL_STAGES.includes(walkthrough.stage!)) {
-      walkthrough.finish();
-      setShareModalOpen(false);
-      setDashboardLiveModalOpen(true);
-    }
-  }, [dashboard?.id]);
-
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await mutate();
-    setTimeout(() => setIsRefreshing(false), 500);
+    setTimeout(() => setIsRefreshing(false), REFRESH_SPINNER_MS);
   };
 
   // Handle filter changes (for legacy filter components in canvas)
@@ -485,6 +289,7 @@ export function DashboardNativeView({
   };
 
   // Count applied filters for responsive component
+  // PINNED-BUGS: "Mobile filter accordion "N applied" counts unset filters"
   const appliedFiltersCount = Object.keys(selectedFilters).length;
 
   // Handle dashboard deletion
@@ -556,46 +361,11 @@ export function DashboardNativeView({
   };
 
   if (isLoading) {
-    return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-12 gap-4">
-            <Skeleton className="col-span-6 h-64" />
-            <Skeleton className="col-span-6 h-64" />
-            <Skeleton className="col-span-4 h-48" />
-            <Skeleton className="col-span-8 h-48" />
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardViewLoading />;
   }
 
   if (isError || !dashboard) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Dashboard Not Found</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                The dashboard you're looking for doesn't exist or you don't have access to it.
-              </p>
-              <Button
-                onClick={() => router.push('/dashboards')}
-                data-testid="dashboard-view-not-found-back-btn"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboards
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <DashboardViewNotFound onBack={() => router.push('/dashboards')} />;
   }
 
   return (
@@ -634,7 +404,7 @@ export function DashboardNativeView({
           isRefreshing={isRefreshing}
           onBack={() => router.push('/dashboards')}
           onToggleFullscreen={handleToggleFullscreen}
-          onShare={handleShare}
+          onShare={share.handleShare}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onRefresh={handleRefresh}
@@ -748,101 +518,16 @@ export function DashboardNativeView({
                 {/* Optional content above the chart grid (e.g. Executive Summary) */}
                 {beforeContent}
 
-                {/* Show empty state if no layout config */}
-                {(() => {
-                  const activeLayout = currentTab?.layout_config || [];
-                  return activeLayout.length === 0 ? (
-                    <div
-                      className="p-8 text-center text-gray-500"
-                      data-testid="dashboard-view-empty-state"
-                    >
-                      <p className="text-lg mb-2">No Dashboard Components</p>
-                      <p className="text-sm">
-                        This dashboard doesn't have any components configured yet.
-                      </p>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
-                {(() => {
-                  const modifiedLayout = currentTab?.layout_config || [];
-
-                  return effectiveScreenSize !== targetScreenSize ? (
-                    // Preview mode with different screen size - use responsive layout
-                    <ResponsiveGrid
-                      className="dashboard-grid"
-                      layouts={
-                        dashboard.responsive_layouts ||
-                        generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                      }
-                      breakpoints={GRID_BREAKPOINTS}
-                      cols={GRID_COLS}
-                      rowHeight={GRID_ROW_HEIGHT}
-                      width={actualContainerWidth}
-                      style={{
-                        width: '100% !important',
-                      }}
-                      isDraggable={false}
-                      isResizable={false}
-                      compactType={null}
-                      preventCollision={false}
-                      margin={GRID_MARGIN}
-                      containerPadding={GRID_CONTAINER_PADDING}
-                      autoSize={true}
-                      verticalCompact={false}
-                      onBreakpointChange={(newBreakpoint: string) => {
-                        setCurrentBreakpoint(newBreakpoint);
-                      }}
-                    >
-                      {modifiedLayout.map((layoutItem: any) => (
-                        <div key={layoutItem.i} className="dashboard-item">
-                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                            <CardContent className="p-2 h-full">
-                              {renderComponent(layoutItem.i)}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </ResponsiveGrid>
-                  ) : (
-                    // Target screen size or no preview override - grid model: render each
-                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
-                    <GridLayout
-                      className="dashboard-grid"
-                      // Pass the raw layout and let RGL's compactType="vertical" handle
-                      // compaction — identical to the editor canvas. A prior compactVertical()
-                      // pass here used a "global topmost free slot" search that let items jump
-                      // a full-width separator into an exactly-sized gap above it, so the view
-                      // reflowed differently from edit. See git history / dashboard 328.
-                      layout={modifiedLayout}
-                      cols={effectiveScreenConfig.cols}
-                      rowHeight={GRID_ROW_HEIGHT}
-                      width={actualContainerWidth}
-                      style={{
-                        width: '100% !important',
-                      }}
-                      isDraggable={false}
-                      isResizable={false}
-                      compactType="vertical"
-                      preventCollision={false}
-                      allowOverlap={false}
-                      margin={GRID_MARGIN}
-                      containerPadding={GRID_CONTAINER_PADDING}
-                      autoSize={true}
-                    >
-                      {modifiedLayout.map((layoutItem: any) => (
-                        <div key={layoutItem.i} className="dashboard-item">
-                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                            <CardContent className="p-2 h-full">
-                              {renderComponent(layoutItem.i)}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </GridLayout>
-                  );
-                })()}
+                <DashboardViewGrid
+                  layout={currentTab?.layout_config || []}
+                  effectiveScreenSize={effectiveScreenSize}
+                  targetScreenSize={targetScreenSize}
+                  cols={effectiveScreenConfig.cols}
+                  responsiveLayouts={dashboard.responsive_layouts}
+                  containerWidth={actualContainerWidth}
+                  onBreakpointChange={setCurrentBreakpoint}
+                  renderComponent={renderComponent}
+                />
               </div>
             </div>
           </div>
@@ -850,88 +535,10 @@ export function DashboardNativeView({
       </div>{' '}
       {/* Close Main Content Area */}
       {/* Custom styles for preview mode canvas */}
-      <style jsx global>{`
-        .dashboard-canvas {
-          position: relative;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .print-mode .dashboard-canvas {
-          overflow: visible !important;
-        }
-
-        .dashboard-canvas .dashboard-grid {
-          position: relative;
-          width: 100% !important;
-          height: 100%;
-        }
-
-        .dashboard-canvas .dashboard-item {
-          transition: transform 0.2s ease;
-          cursor: default;
-        }
-
-        .dashboard-canvas .dashboard-item:hover {
-          z-index: 10;
-        }
-
-        .dashboard-canvas .react-grid-item {
-          transition: none !important;
-        }
-
-        .dashboard-canvas .react-grid-item.react-grid-placeholder {
-          display: none !important;
-        }
-
-        /* Canvas border animations */
-        .dashboard-canvas {
-          animation: canvasAppear 0.3s ease-out;
-        }
-
-        @keyframes canvasAppear {
-          from {
-            opacity: 0;
-            transform: scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        /* Mobile-specific fixes for scrolling - ONLY for public dashboards */
-        ${isPublicMode
-          ? `
-          @media (max-width: 640px) {
-            html, body {
-              height: auto !important;
-              min-height: 100vh;
-              overflow-x: hidden;
-              -webkit-overflow-scrolling: touch;
-            }
-            
-            .dashboard-canvas {
-              max-width: calc(100vw - 2rem) !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
-          }
-
-          /* iOS Safari specific fixes - ONLY for public dashboards */
-          @supports (-webkit-touch-callout: none) {
-            @media (max-width: 640px) {
-              .dashboard-canvas {
-                will-change: scroll-position;
-              }
-            }
-          }
-        `
-          : ''}
-      `}</style>
+      <DashboardCanvasStyles isPublicMode={isPublicMode} />
       <CelebrationModal
-        open={dashboardLiveModalOpen}
-        onOpenChange={setDashboardLiveModalOpen}
+        open={share.dashboardLiveModalOpen}
+        onOpenChange={share.setDashboardLiveModalOpen}
         title="Congratulations, you're officially live!"
         description="Your insights are built and your new dashboard is ready to go."
         ctaLabel="View Dashboard"
@@ -944,11 +551,11 @@ export function DashboardNativeView({
           rtype="dashboard"
           entityId={dashboard.id}
           entityLabel={dashboard.title || 'Dashboard'}
-          isOpen={shareModalOpen}
-          onClose={handleShareModalClose}
-          onUpdate={handleDashboardUpdate}
-          onCopyLink={handleCopyLink}
-          onMadePublic={handleMadePublic}
+          isOpen={share.shareModalOpen}
+          onClose={share.handleShareModalClose}
+          onUpdate={share.handleDashboardUpdate}
+          onCopyLink={share.handleCopyLink}
+          onMadePublic={share.handleMadePublic}
         />
       )}
     </div>
