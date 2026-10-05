@@ -4,11 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import type { DashboardTabsData } from '@/types/dashboard';
-import { initializeTabsData } from './tabs/tab-utils';
-import { TabBar } from './tabs/TabBar';
 import { cn } from '@/lib/utils';
-import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { useAuthStore } from '@/stores/authStore';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
@@ -24,7 +20,6 @@ import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUse
 import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import { WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
@@ -39,13 +34,16 @@ import {
   DashboardViewNotFound,
 } from '@/components/dashboard/view/DashboardViewStates';
 import { DashboardCanvasStyles } from '@/components/dashboard/view/DashboardCanvasStyles';
+import { useDashboardViewSource } from '@/components/dashboard/view/useDashboardViewSource';
+import { useDashboardViewActions } from '@/components/dashboard/view/useDashboardViewActions';
+import { useViewTabs } from '@/components/dashboard/view/useViewTabs';
+import { ViewTabBar } from '@/components/dashboard/view/ViewTabBar';
+import { DashboardMinimalHeader } from '@/components/dashboard/view/DashboardMinimalHeader';
 
 // After filter panel collapse, ECharts still sees the pre-animation container width.
 // Wait for the slide transition (duration-300) to finish before firing resize so all
 // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
 const FILTER_PANEL_TRANSITION_MS = 350;
-/** The refresh spinner stays this long after the refetch resolves. */
-const REFRESH_SPINNER_MS = 500;
 
 interface DashboardNativeViewProps {
   dashboardId: number;
@@ -111,14 +109,10 @@ export function DashboardNativeView({
     onFiltersChange?.(selectedFilters);
   }, [selectedFilters, onFiltersChange]);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [, setCurrentBreakpoint] = useState('lg');
   const [previewScreenSize] = useState<ScreenSizeKey | null>(null);
   // Filters panel collapse state (set, never read — kept: its setter re-renders as before)
   const [, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
-  // Tabs state for view mode - only need to track active tab for switching
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -140,19 +134,22 @@ export function DashboardNativeView({
     isLandingPageLoading: landingPageLoading,
   } = useLandingPageActions();
 
-  // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
-  const {
-    data: dashboardFromApi,
-    isLoading: apiIsLoading,
-    isError: apiIsError,
-    mutate,
-  } = useDashboard((isPublicMode || isReportMode) && dashboardData ? null : dashboardId);
-
-  // Use pre-fetched data for public/report mode, otherwise use API data
-  const dashboard =
-    (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
+  const { dashboard, isLoading, isError, mutate } = useDashboardViewSource({
+    dashboardId,
+    isPublicMode,
+    isReportMode,
+    dashboardData,
+  });
 
   const share = useDashboardShareFlow({ dashboard, refreshDashboard: mutate });
+  const { isRefreshing, isDeleting, handleEdit, handleRefresh, handleDelete } =
+    useDashboardViewActions({
+      dashboardId,
+      dashboardTitle: dashboard?.title,
+      router,
+      refresh: mutate,
+      toast,
+    });
 
   // Org logo for fullscreen overlays:
   // - Private mode: user is logged in, auth store has the org logo
@@ -161,10 +158,6 @@ export function DashboardNativeView({
   const orgLogoUrl = isPublicMode
     ? (dashboard?.org_logo_url ?? null)
     : (currentOrg?.logo_url ?? null);
-
-  // Override loading and error states when we have pre-fetched data
-  const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
-  const isError = (isPublicMode || isReportMode) && dashboardData ? false : apiIsError;
 
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
@@ -212,36 +205,13 @@ export function DashboardNativeView({
   // Default filter values for report mode are computed synchronously in useState above.
   // No useEffect needed — this avoids a double-render cycle with empty filters.
 
-  // Derive tabs data from dashboard
-  const tabsData: DashboardTabsData | null = useMemo(() => {
-    if (!dashboard) return null;
-    return initializeTabsData(dashboard.tabs);
-  }, [dashboard]);
-
-  // Get effective active tab ID
-  const effectiveActiveTabId =
-    activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
-
-  // Derive the current tab's layout/components to render
-  const currentTab = useMemo(() => {
-    if (tabsData && effectiveActiveTabId) {
-      return tabsData.tabs.find((t) => t.id === effectiveActiveTabId) || null;
-    }
-    return null;
-  }, [tabsData, effectiveActiveTabId]);
-
-  // Handle tab change in view mode
-  const handleTabChange = useCallback((tabId: string) => {
-    setActiveTabId(tabId);
-  }, []);
+  const { tabsData, effectiveActiveTabId, currentTab, handleTabChange, shouldShowTabs } =
+    useViewTabs(dashboard);
 
   const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
     setIsFiltersCollapsed(collapsed);
     setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
   }, []);
-
-  // Check if we should show tabs (2 or more tabs)
-  const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
 
@@ -256,18 +226,6 @@ export function DashboardNativeView({
     if (containerRef.current) {
       toggleFullscreen(containerRef.current);
     }
-  };
-
-  // Handle edit navigation
-  const handleEdit = () => {
-    router.push(`/dashboards/${dashboardId}/edit`);
-  };
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await mutate();
-    setTimeout(() => setIsRefreshing(false), REFRESH_SPINNER_MS);
   };
 
   // Handle filter changes (for legacy filter components in canvas)
@@ -291,34 +249,6 @@ export function DashboardNativeView({
   // Count applied filters for responsive component
   // PINNED-BUGS: "Mobile filter accordion "N applied" counts unset filters"
   const appliedFiltersCount = Object.keys(selectedFilters).length;
-
-  // Handle dashboard deletion
-  const handleDelete = async () => {
-    setIsDeleting(true);
-
-    try {
-      await deleteDashboard(dashboardId);
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
-
-      toast({
-        title: 'Dashboard deleted',
-        description: `"${dashboard?.title}" has been successfully deleted.`,
-        variant: 'default',
-      });
-
-      // Navigate back to dashboard list
-      router.push('/dashboards');
-    } catch (error) {
-      console.error('Error deleting dashboard:', error);
-      toast({
-        title: 'Delete failed',
-        description: 'Failed to delete the dashboard. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   // Landing page handlers
   const handleSetPersonalLanding = () => setMyLanding(dashboardId);
@@ -412,16 +342,7 @@ export function DashboardNativeView({
       )}
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
-        <div className="bg-white border-b flex-shrink-0 px-6 py-6">
-          <div>
-            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
-            {dashboard.description && (
-              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
-                {dashboard.description}
-              </p>
-            )}
-          </div>
-        </div>
+        <DashboardMinimalHeader title={dashboard.title} description={dashboard.description} />
       )}
       {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
       {!isEmbedMode && (
@@ -463,14 +384,10 @@ export function DashboardNativeView({
         >
           {/* Tab Bar sticky at top — only in non-report dashboard mode */}
           {!isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
-            <TabBar
+            <ViewTabBar
               tabs={tabsData.tabs}
               activeTabId={effectiveActiveTabId}
-              isEditMode={false}
               onTabChange={handleTabChange}
-              onTabAdd={() => {}} // No-op in view mode
-              onTabRemove={() => {}} // No-op in view mode
-              onTabRename={() => {}} // No-op in view mode
             />
           )}
 
@@ -483,14 +400,10 @@ export function DashboardNativeView({
 
             {/* Tab Bar inside scroll area — report mode only */}
             {isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
-              <TabBar
+              <ViewTabBar
                 tabs={tabsData.tabs}
                 activeTabId={effectiveActiveTabId}
-                isEditMode={false}
                 onTabChange={handleTabChange}
-                onTabAdd={() => {}} // No-op in view mode
-                onTabRemove={() => {}} // No-op in view mode
-                onTabRename={() => {}} // No-op in view mode
               />
             )}
 
