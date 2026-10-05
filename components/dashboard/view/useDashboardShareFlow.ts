@@ -83,7 +83,7 @@ export function useDashboardShareFlow({ dashboard, refreshDashboard }: ShareFlow
     refreshDashboard(); // Refresh the dashboard data
   };
 
-  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
+  // ShareModal (components/share/, kept free of onboarding logic) reports when
   // General access flips to Public, and that is what moves the walkthrough on — same trick
   // dashboard-list uses for the "shared" milestone. The dialog stays open: the next stage
   // points at the copy button inside it.

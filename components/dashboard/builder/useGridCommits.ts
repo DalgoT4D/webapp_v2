@@ -94,7 +94,7 @@ export function useGridCommits({ stateRef, setState, isUndoRedoOperationRef }: G
 
       advanceWalkthroughAfterResize();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- same dependency list as before
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isUndoRedoOperationRef is a ref (stable); same dependency list as before
     [setState, applyItemConstraints]
   );
 

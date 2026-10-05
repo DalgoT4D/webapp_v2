@@ -17,9 +17,9 @@ export interface ListPaginationTestIds {
   pageSizeOptionPrefix: string;
   prev: string;
   next: string;
-  /** Reports only. */
+  /** LIST-DRIFT: only reports show an item-count testid. */
   itemCount?: string;
-  /** Reports only. */
+  /** LIST-DRIFT: only reports show a page-counter testid. */
   pageCounter?: string;
 }
 
@@ -30,7 +30,7 @@ interface ListPaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  /** Charts ("charts") and dashboards ("dashboard") id every element as `${idPrefix}-…`; reports have no ids. */
+  /** LIST-DRIFT: charts ("charts") and dashboards ("dashboard") id every element as `${idPrefix}-…`; reports have no ids. */
   idPrefix?: string;
   testIds: ListPaginationTestIds;
 }

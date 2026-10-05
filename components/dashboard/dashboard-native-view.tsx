@@ -60,7 +60,6 @@ interface DashboardNativeViewProps {
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   topRightContent?: React.ReactNode; // Content rendered above the tab bar in the right column (e.g. report summary)
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
-  isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
@@ -83,7 +82,6 @@ export function DashboardNativeView({
   beforeContent,
   topRightContent,
   onContainerRef,
-  isPrintMode = false,
   snapshotId,
   commentStates,
   onCommentStateChange,
@@ -95,7 +93,7 @@ export function DashboardNativeView({
   const widgetNavigationSource = isReportMode
     ? WIDGET_NAVIGATION_SOURCES.REPORT
     : WIDGET_NAVIGATION_SOURCES.DASHBOARD;
-  const showWidgetNavigation = !isPublicMode && !isEmbedMode && !isPrintMode;
+  const showWidgetNavigation = !isPublicMode && !isEmbedMode;
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
@@ -305,10 +303,7 @@ export function DashboardNativeView({
       className={cn(
         'h-full flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
-        isPublicMode &&
-          !isPrintMode &&
-          'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto',
-        isPrintMode && 'h-auto overflow-visible print-mode'
+        isPublicMode && 'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
@@ -361,7 +356,7 @@ export function DashboardNativeView({
         />
       )}
       {/* Main Content Area */}
-      <div className={cn('flex-1 flex overflow-hidden', isPrintMode && 'overflow-visible')}>
+      <div className={cn('flex-1 flex overflow-hidden')}>
         {/* Desktop Vertical Filters Sidebar — spans full height including tabs row */}
         {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
@@ -380,9 +375,7 @@ export function DashboardNativeView({
         )}
 
         {/* Right side: Tab Bar + Canvas stacked vertically */}
-        <div
-          className={cn('flex-1 flex flex-col overflow-hidden', isPrintMode && 'overflow-visible')}
-        >
+        <div className={cn('flex-1 flex flex-col overflow-hidden')}>
           {/* Tab Bar sticky at top — only in non-report dashboard mode */}
           {!isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
             <ViewTabBar
@@ -395,7 +388,7 @@ export function DashboardNativeView({
           {/* Scrollable area:
               - Report mode: summary + tabs + canvas all scroll together
               - Dashboard mode: only canvas scrolls (tabs stay sticky above) */}
-          <div className={cn('flex-1 overflow-auto min-h-0', isPrintMode && 'overflow-visible')}>
+          <div className={cn('flex-1 overflow-auto min-h-0')}>
             {/* Summary scrolls with content (only set in report mode) */}
             {topRightContent}
 
@@ -410,11 +403,7 @@ export function DashboardNativeView({
 
             {/* Dashboard Content - Canvas Area */}
             <div
-              className={cn(
-                'min-w-0 bg-gray-50 p-4 pb-[150px]',
-                isPublicMode && 'pb-24 sm:pb-16',
-                isPrintMode && 'overflow-visible pb-4'
-              )}
+              className={cn('min-w-0 bg-gray-50 p-4 pb-[150px]', isPublicMode && 'pb-24 sm:pb-16')}
             >
               <div
                 ref={(el) => {

@@ -224,13 +224,6 @@ export function ChartDetailClient({ chartId }: ChartDetailClientProps) {
               ? (chartData?.data as unknown as PivotTableResponse | undefined)
               : undefined,
           pivotExtraConfig: chart.extra_config,
-          tableData:
-            chart.chart_type === 'table' && tableData
-              ? {
-                  data: tableData.data || [],
-                  columns: tableData.columns || [],
-                }
-              : undefined,
           tableElement:
             chart.chart_type === 'table' || chart.chart_type === 'pivot_table'
               ? chartContentRef.current

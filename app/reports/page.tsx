@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
 
+  // PINNED-BUGS: "Reports list: the 400 ms filter debounce also fires on mount and resets to page 1" — useReportListFilters calls this on mount.
   const resetToFirstPage = useCallback(() => setCurrentPage(1), []);
   const filters = useReportListFilters(resetToFirstPage);
 

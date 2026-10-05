@@ -23,7 +23,8 @@ export function useReportListFilters(onFiltersSettled: () => void) {
     () => ({ title: titleFilter, dashboard: dashboardFilter, createdBy: createdByFilter }),
     [titleFilter, dashboardFilter, createdByFilter]
   );
-  // PINNED-BUGS: the debounce timer also fires once on mount, which runs onFiltersSettled (page → 1).
+  // PINNED-BUGS: "Reports list: the 400 ms filter debounce also fires on mount and resets to page 1 → an early "Next" bounces back"
+  // (the debounce timer also fires once on mount, which runs onFiltersSettled → page 1)
   const debouncedInputs = useDebouncedValue(
     filterInputs,
     REPORT_FILTER_DEBOUNCE_MS,

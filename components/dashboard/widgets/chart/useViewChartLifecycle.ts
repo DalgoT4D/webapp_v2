@@ -169,6 +169,7 @@ export function useViewChartLifecycle({
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref/setter passed as a parameter is stable; deps kept as before R6
   }, [
     chartData,
     mapDataOverlay,
@@ -205,6 +206,7 @@ export function useViewChartLifecycle({
         chartInstance.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref passed as a parameter is stable; deps kept as before R6
   }, [chartId]);
 
   // Handle chart resize when fullscreen state changes
@@ -224,5 +226,6 @@ export function useViewChartLifecycle({
     }, 100);
 
     return () => clearTimeout(resizeTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs passed as parameters are stable; deps kept as before R6
   }, [isFullscreen, isTableChart, isPivotTableChart]);
 }

@@ -9,8 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-const SKELETON_ROW_COUNT = 8; // rows shown while the list loads
+import { LIST_SKELETON_ROW_COUNT } from '@/components/list-page/constants';
 
 /** Placeholder table shown while the dashboard list loads. */
 export function DashboardListSkeleton() {
@@ -44,7 +43,7 @@ export function DashboardListSkeleton() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {[...Array(SKELETON_ROW_COUNT)].map((_, i) => (
+            {[...Array(LIST_SKELETON_ROW_COUNT)].map((_, i) => (
               <TableRow key={i}>
                 <TableCell className="py-4">
                   <div className="flex items-center gap-3">

@@ -51,6 +51,7 @@ export function useMapContainerResize({
         clearTimeout(resizeTimeoutId);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref passed as a parameter is stable; deps kept as before R6
   }, []); // No dependencies to avoid infinite loops
 
   // Handle container resize using ResizeObserver - separate effect
@@ -117,6 +118,7 @@ export function useMapContainerResize({
         clearTimeout(resizeTimeoutId);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs passed as parameters are stable; deps kept as before R6
   }, [safeCustomizations]);
 
   // Handle resize when isResizing prop changes (dashboard resize)
@@ -144,6 +146,7 @@ export function useMapContainerResize({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs passed as parameters are stable; deps kept as before R6
   }, [isResizing]);
 
   useEffect(() => {
@@ -155,5 +158,6 @@ export function useMapContainerResize({
         listenersAttachedRef.current = false;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs passed as parameters are stable; deps kept as before R6
   }, []);
 }
