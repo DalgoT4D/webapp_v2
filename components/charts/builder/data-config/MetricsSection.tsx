@@ -20,7 +20,7 @@ interface MetricsSectionProps {
 /**
  * Metrics picker: many for bar/line/table/pivot, one for pie and number (number also writes the legacy fields).
  * Each branch has its own key so switching between them remounts MetricsSelector, as the three
- * separate slots in ChartDataConfigurationV3 did (bar <-> line keeps the same instance).
+ * separate slots in ChartDataConfiguration did (bar <-> line keeps the same instance).
  */
 export function MetricsSection({
   formData,

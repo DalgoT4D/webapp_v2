@@ -27,7 +27,7 @@ interface TableColumn {
   column_name: string;
 }
 
-interface MapDataConfigurationV3Props {
+interface MapDataConfigurationProps {
   formData: ChartBuilderFormData;
   onFormDataChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
@@ -42,7 +42,7 @@ const AGGREGATE_FUNCTIONS = [
   { value: 'count_distinct', label: 'Count Distinct' },
 ];
 
-// Component for searchable value input - same as in ChartDataConfigurationV3
+// Component for searchable value input - same as in ChartDataConfiguration
 const SearchableValueInput = React.memo(function SearchableValueInput({
   schema,
   table,
@@ -179,11 +179,11 @@ const SearchableValueInput = React.memo(function SearchableValueInput({
   );
 });
 
-export function MapDataConfigurationV3({
+export function MapDataConfiguration({
   formData,
   onFormDataChange,
   disabled,
-}: MapDataConfigurationV3Props) {
+}: MapDataConfigurationProps) {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Memoize normalized columns to prevent unnecessary re-renders

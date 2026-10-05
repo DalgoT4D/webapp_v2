@@ -17,7 +17,7 @@ type ConfigRecord = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Pass 1 — the data-config panel's switch (both builders, non-map sources)
-// Adapted from ChartDataConfigurationV3.handleChartTypeChange (logic unchanged; the dev-only
+// Adapted from ChartDataConfiguration.handleChartTypeChange (logic unchanged; the dev-only
 // console.log was dropped and a couple of array literals were given explicit types).
 // ---------------------------------------------------------------------------
 

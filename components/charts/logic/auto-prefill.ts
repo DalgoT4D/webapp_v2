@@ -2,7 +2,7 @@ import type { ChartBuilderFormData } from '@/types/charts';
 
 /**
  * True when the chart already has data fields, so auto-prefill must leave it alone.
- * Same rule in the create page's prefill effect and ChartDataConfigurationV3's.
+ * Same rule in the create page's prefill effect and ChartDataConfiguration's.
  */
 export function hasExistingChartConfig(config: ChartBuilderFormData): boolean {
   return !!(
@@ -16,7 +16,7 @@ export function hasExistingChartConfig(config: ChartBuilderFormData): boolean {
   );
 }
 
-/** MapDataConfigurationV3's narrower rule (value_column counts, axis/table fields don't). */
+/** MapDataConfiguration's narrower rule (value_column counts, axis/table fields don't). */
 export function hasExistingMapConfig(config: ChartBuilderFormData): boolean {
   return !!(
     config.geographic_column ||

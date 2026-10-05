@@ -21,7 +21,7 @@ import { SortSection } from '@/components/charts/builder/data-config/SortSection
 import type { ChartBuilderFormData } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
 
-interface ChartDataConfigurationV3Props {
+interface ChartDataConfigurationProps {
   formData: ChartBuilderFormData;
   onChange: (updates: Partial<ChartBuilderFormData>) => void;
   disabled?: boolean;
@@ -42,7 +42,7 @@ const EXTRA_DIMENSION_CHART_TYPES = ['bar', 'line', 'pie'];
 /** Chart types without pagination and sort (pivot: v1 has no pivot sort). */
 const NO_PAGINATION_SORT_CHART_TYPES = ['map', 'number', 'pivot_table'];
 
-export function ChartDataConfigurationV3({
+export function ChartDataConfiguration({
   formData,
   onChange,
   disabled,
@@ -50,7 +50,7 @@ export function ChartDataConfigurationV3({
   onReorderWithScopedRules,
   scopedRuleCountByLevel,
   isNewChart,
-}: ChartDataConfigurationV3Props) {
+}: ChartDataConfigurationProps) {
   const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
 
   // Memoize normalized columns to prevent unnecessary re-renders

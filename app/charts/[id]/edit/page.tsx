@@ -2,9 +2,9 @@
 
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
+import { ChartDataConfiguration } from '@/components/charts/ChartDataConfiguration';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { MapDataConfigurationV3 } from '@/components/charts/chart-types/map/MapDataConfigurationV3';
+import { MapDataConfiguration } from '@/components/charts/chart-types/map/MapDataConfiguration';
 import { MapCustomizations } from '@/components/charts/chart-types/map/MapCustomizations';
 import { useChart, useColumns } from '@/hooks/api/useChart';
 import { ChartTypes, type ChartDataPayload } from '@/types/charts';
@@ -237,9 +237,9 @@ function EditChartPageContent() {
       onConfigTabChange={handleTabView}
       dataConfigPanel={
         config.chart_type === ChartTypes.MAP ? (
-          <MapDataConfigurationV3 formData={config} onFormDataChange={patchConfig} />
+          <MapDataConfiguration formData={config} onFormDataChange={patchConfig} />
         ) : (
-          <ChartDataConfigurationV3 formData={config} onChange={patchConfig} disabled={false} />
+          <ChartDataConfiguration formData={config} onChange={patchConfig} disabled={false} />
         )
       }
       stylingPanel={

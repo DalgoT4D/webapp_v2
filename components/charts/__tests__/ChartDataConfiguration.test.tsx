@@ -1,12 +1,12 @@
 /**
- * Comprehensive tests for ChartDataConfigurationV3 component
+ * Comprehensive tests for ChartDataConfiguration component
  * Ultra-consolidated version with minimal parameterized tests
  */
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChartDataConfigurationV3 } from '../ChartDataConfigurationV3';
+import { ChartDataConfiguration } from '../ChartDataConfiguration';
 import * as useChartHooks from '@/hooks/api/useChart';
 import * as chartAutoPrefill from '@/lib/chartAutoPrefill';
 import type { ChartMetric } from '@/types/charts';
@@ -80,7 +80,7 @@ jest.mock('../TimeGrainSelector', () => ({
   ),
 }));
 
-describe('ChartDataConfigurationV3', () => {
+describe('ChartDataConfiguration', () => {
   const mockOnChange = jest.fn();
 
   const baseFormData = {
@@ -114,7 +114,7 @@ describe('ChartDataConfigurationV3', () => {
 
   describe('Basic Rendering', () => {
     it('should render all main components', () => {
-      render(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />);
       expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
       expect(screen.getByTestId('dataset-selector')).toBeInTheDocument();
       expect(screen.getByText('Data Source')).toBeInTheDocument();
@@ -122,12 +122,12 @@ describe('ChartDataConfigurationV3', () => {
 
     it('should show correct labels for different chart types', () => {
       const { rerender } = render(
-        <ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />
+        <ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />
       );
       expect(screen.getByText('X Axis')).toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'pie' }}
           onChange={mockOnChange}
         />
@@ -135,7 +135,7 @@ describe('ChartDataConfigurationV3', () => {
       expect(screen.getByText('Dimension')).toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'number' }}
           onChange={mockOnChange}
         />
@@ -145,12 +145,12 @@ describe('ChartDataConfigurationV3', () => {
 
     it('should control extra dimension visibility by chart type', () => {
       const { rerender } = render(
-        <ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />
+        <ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />
       );
       expect(screen.getByText('Extra Dimension')).toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'number' }}
           onChange={mockOnChange}
         />
@@ -160,14 +160,14 @@ describe('ChartDataConfigurationV3', () => {
 
     it('should set correct maxMetrics', () => {
       const { rerender } = render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'pie' }}
           onChange={mockOnChange}
         />
       );
       expect(screen.getByTestId('max-metrics')).toHaveTextContent('1');
 
-      rerender(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />);
+      rerender(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />);
       expect(screen.getByTestId('max-metrics')).toHaveTextContent('unlimited');
     });
   });
@@ -175,7 +175,7 @@ describe('ChartDataConfigurationV3', () => {
   describe('Time Grain', () => {
     it('should show time grain for time columns on bar/line charts', () => {
       const { rerender } = render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, dimension_column: 'created_at' }}
           onChange={mockOnChange}
         />
@@ -183,7 +183,7 @@ describe('ChartDataConfigurationV3', () => {
       expect(screen.getByTestId('time-grain-selector')).toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, dimension_column: 'category' }}
           onChange={mockOnChange}
         />
@@ -194,7 +194,7 @@ describe('ChartDataConfigurationV3', () => {
     it('should handle time grain change', async () => {
       const user = userEvent.setup();
       render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, dimension_column: 'created_at' }}
           onChange={mockOnChange}
         />
@@ -214,7 +214,7 @@ describe('ChartDataConfigurationV3', () => {
         filters: [{ column: 'status', operator: 'equals' as const, value: 'active' }],
       };
 
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       await user.click(screen.getByTestId('change-dataset'));
 
       expect(mockOnChange).toHaveBeenCalledWith(
@@ -230,7 +230,7 @@ describe('ChartDataConfigurationV3', () => {
 
     it('should adjust config when switching chart types', async () => {
       const user = userEvent.setup();
-      render(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />);
 
       await user.click(screen.getByTestId('change-to-pie'));
       expect(mockOnChange).toHaveBeenCalledWith(expect.objectContaining({ chart_type: 'pie' }));
@@ -257,7 +257,7 @@ describe('ChartDataConfigurationV3', () => {
         ],
       };
 
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       await user.click(screen.getByTestId('change-to-map'));
 
       expect(mockOnChange).toHaveBeenCalledWith(
@@ -283,7 +283,7 @@ describe('ChartDataConfigurationV3', () => {
       ];
       const formData = { ...baseFormData, metrics };
 
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       await user.click(screen.getByTestId('change-to-pivot_table'));
 
       expect(mockOnChange).toHaveBeenCalledWith(
@@ -305,7 +305,7 @@ describe('ChartDataConfigurationV3', () => {
       });
       const formData = { ...baseFormData, metrics: [] };
 
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       await user.click(screen.getByTestId('change-to-map'));
 
       // With no metric to preserve, the auto-prefilled default must stand (not an empty section).
@@ -321,7 +321,7 @@ describe('ChartDataConfigurationV3', () => {
   describe('Filters', () => {
     it('should add and remove filters', async () => {
       const user = userEvent.setup();
-      render(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />);
 
       await user.click(screen.getByRole('button', { name: /add filter/i }));
       expect(mockOnChange).toHaveBeenCalledWith({
@@ -335,12 +335,12 @@ describe('ChartDataConfigurationV3', () => {
         filters: [{ column: 'status', operator: 'is_null' as const, value: '' }],
       };
       const { rerender } = render(
-        <ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />
+        <ChartDataConfiguration formData={formData} onChange={mockOnChange} />
       );
       expect(screen.queryByPlaceholderText('Enter value')).not.toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{
             ...baseFormData,
             filters: [{ column: 'status', operator: 'equals' as const, value: '' }],
@@ -359,7 +359,7 @@ describe('ChartDataConfigurationV3', () => {
           { column: 'amount', operator: 'is_null' as const, value: '' },
         ],
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByText('Data Filters')).toBeInTheDocument();
     });
   });
@@ -367,13 +367,13 @@ describe('ChartDataConfigurationV3', () => {
   describe('Configuration Sections', () => {
     it('should show/hide sections based on chart type', () => {
       const { rerender } = render(
-        <ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />
+        <ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />
       );
       expect(screen.getByText('Pagination')).toBeInTheDocument();
       expect(screen.getByText('Sort Configuration')).toBeInTheDocument();
 
       rerender(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'number' }}
           onChange={mockOnChange}
         />
@@ -389,7 +389,7 @@ describe('ChartDataConfigurationV3', () => {
         metrics: [{ column: 'amount', aggregation: 'sum' }],
       };
 
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByText('Sort Configuration')).toBeInTheDocument();
       expect(screen.queryByText('Configure metrics first')).not.toBeInTheDocument();
     });
@@ -397,14 +397,14 @@ describe('ChartDataConfigurationV3', () => {
 
   describe('Column Selection', () => {
     it('should render dimension and extra dimension columns for bar charts', () => {
-      render(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} />);
       expect(screen.getByText('X Axis')).toBeInTheDocument();
       expect(screen.getByText('Extra Dimension')).toBeInTheDocument();
     });
 
     it('should show table-specific labels', () => {
       render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'table' }}
           onChange={mockOnChange}
         />
@@ -427,14 +427,14 @@ describe('ChartDataConfigurationV3', () => {
         table_name: 'sales',
         computation_type: 'aggregated' as const,
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
 
       await waitFor(() => expect(chartAutoPrefill.generateAutoPrefilledConfig).toHaveBeenCalled());
     });
 
     it('should not auto-prefill when config exists', () => {
       const formData = { ...baseFormData, dimension_column: 'category' };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(chartAutoPrefill.generateAutoPrefilledConfig).not.toHaveBeenCalled();
     });
   });
@@ -443,7 +443,7 @@ describe('ChartDataConfigurationV3', () => {
     it('should update aggregate fields for number chart', async () => {
       const user = userEvent.setup();
       render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'number', metrics: [] }}
           onChange={mockOnChange}
         />
@@ -467,12 +467,12 @@ describe('ChartDataConfigurationV3', () => {
         schema_name: undefined,
         table_name: undefined,
       };
-      render(<ChartDataConfigurationV3 formData={formData as any} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData as any} onChange={mockOnChange} />);
       expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();
     });
 
     it('should handle disabled prop', () => {
-      render(<ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} disabled />);
+      render(<ChartDataConfiguration formData={baseFormData} onChange={mockOnChange} disabled />);
       expect(screen.getByTestId('change-dataset')).toBeDisabled();
     });
   });
@@ -485,13 +485,13 @@ describe('ChartDataConfigurationV3', () => {
         dimension_column: 'category',
         metrics: [{ column: 'amount', aggregation: 'sum' }],
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByText('Sort Configuration')).toBeInTheDocument();
     });
 
     it('should render pagination configuration for table charts', () => {
       render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'table' }}
           onChange={mockOnChange}
         />
@@ -503,7 +503,7 @@ describe('ChartDataConfigurationV3', () => {
   describe('Map Chart Specifics', () => {
     it('should not render dimension/metrics for map charts', () => {
       render(
-        <ChartDataConfigurationV3
+        <ChartDataConfiguration
           formData={{ ...baseFormData, chart_type: 'map' }}
           onChange={mockOnChange}
         />
@@ -520,7 +520,7 @@ describe('ChartDataConfigurationV3', () => {
         computation_type: 'aggregated' as const,
         dimension_column: 'category',
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByTestId('metrics-selector')).toBeInTheDocument();
     });
 
@@ -531,7 +531,7 @@ describe('ChartDataConfigurationV3', () => {
         computation_type: 'aggregated' as const,
         dimension_column: 'category',
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByTestId('metrics-selector')).toBeInTheDocument();
     });
 
@@ -542,7 +542,7 @@ describe('ChartDataConfigurationV3', () => {
         computation_type: 'aggregated' as const,
         dimension_column: 'category',
       };
-      render(<ChartDataConfigurationV3 formData={formData} onChange={mockOnChange} />);
+      render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       expect(screen.getByTestId('max-metrics')).toHaveTextContent('1');
     });
   });

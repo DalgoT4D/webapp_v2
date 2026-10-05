@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
+import { ChartDataConfiguration } from '@/components/charts/ChartDataConfiguration';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { MapDataConfigurationV3 } from '@/components/charts/chart-types/map/MapDataConfigurationV3';
+import { MapDataConfiguration } from '@/components/charts/chart-types/map/MapDataConfiguration';
 import { MapCustomizations } from '@/components/charts/chart-types/map/MapCustomizations';
 import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
 import { useColumns } from '@/hooks/api/useChart';
@@ -108,7 +108,7 @@ function ConfigureChartPageContent() {
   // Get all columns for raw data
   const { data: columns } = useColumns(config.schema_name || null, config.table_name || null);
 
-  // BUILDER-DRIFT: the create page prefills here AND in ChartDataConfigurationV3 (raw vs normalized columns).
+  // BUILDER-DRIFT: the create page prefills here AND in ChartDataConfiguration (raw vs normalized columns).
   // Auto-prefill when columns are loaded
   useEffect(() => {
     if (columns && config.schema_name && config.table_name && config.chart_type) {
@@ -183,9 +183,9 @@ function ConfigureChartPageContent() {
       }}
       dataConfigPanel={
         config.chart_type === 'map' ? (
-          <MapDataConfigurationV3 formData={config} onFormDataChange={patchConfig} />
+          <MapDataConfiguration formData={config} onFormDataChange={patchConfig} />
         ) : (
-          <ChartDataConfigurationV3
+          <ChartDataConfiguration
             formData={config}
             onChange={patchConfig}
             disabled={false}

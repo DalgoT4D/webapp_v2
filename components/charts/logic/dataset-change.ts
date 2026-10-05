@@ -4,7 +4,7 @@ import type { ChartConfigPatch } from '@/components/charts/logic/type-switch';
 /** Which data-config panel the dataset picker sits in. The two reset different fields (pinned). */
 export type DataConfigPanel = 'chart' | 'map';
 
-/** ChartDataConfigurationV3: clears every column choice; keeps dimensions/table_columns (PINNED-BUGS: "Dataset change on a table …"). */
+/** ChartDataConfiguration: clears every column choice; keeps dimensions/table_columns (PINNED-BUGS: "Dataset change on a table …"). */
 function chartPanelReset(): ChartConfigPatch {
   return {
     x_axis_column: undefined,
@@ -27,7 +27,7 @@ function chartPanelReset(): ChartConfigPatch {
   };
 }
 
-/** MapDataConfigurationV3: clears the map fields and the metric (PINNED-BUGS: "Dataset change on a map …"). */
+/** MapDataConfiguration: clears the map fields and the metric (PINNED-BUGS: "Dataset change on a map …"). */
 function mapPanelReset(): ChartConfigPatch {
   return {
     geographic_column: undefined,
