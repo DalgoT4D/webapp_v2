@@ -1,44 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
-import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-import { ChartSelectorModal } from './chart-selector-modal';
-import { KPISelectorModal } from './kpi-selector-modal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { apiPut } from '@/lib/api';
 import { useDashboard } from '@/hooks/api/useDashboards';
-import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
-import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
-import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
-import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
-import { buildAddWidgetHandlers } from '@/components/dashboard/widgets/add-widget-handlers';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
 import { Filter } from 'lucide-react';
-// Removed toast import - using console for notifications
-// Charts, KPIs and text are rendered via DashboardCell
-import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
-import { DashboardCell } from './DashboardCell';
-import { DashboardBuilderHeader } from '@/components/dashboard/builder/DashboardBuilderHeader';
 import { TabBar } from './tabs/TabBar';
-import {
-  DASHBOARD_RICH_TEXT_FLUSH_EVENT,
-  type RichTextFlushEventDetail,
-} from './text-element-unified';
-import { DashboardFilterType } from '@/types/dashboard-filters';
-import type { DashboardTab } from '@/types/dashboard';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { useCrossTabDrag } from '@/components/dashboard/hooks/useCrossTabDrag';
 import {
   getChartEditUrl,
   getChartViewUrl,
@@ -46,45 +24,34 @@ import {
   getKpiViewUrl,
   WIDGET_NAVIGATION_SOURCES,
 } from '@/lib/widget-navigation';
+import { GRID_ROW_HEIGHT, type ScreenSizeKey } from '@/components/dashboard/grid/grid-constants';
 import {
-  GRID_CONTAINER_PADDING,
-  GRID_MARGIN,
-  GRID_ROW_HEIGHT,
-  SCREEN_SIZES,
-  type ScreenSizeKey,
-} from '@/components/dashboard/grid/grid-constants';
-import {
-  addTab,
-  applyRichTextUpdates,
-  buildDashboardSavePayload,
-  constrainLayoutItems,
   getActiveEditorTab,
   getPlacedChartIds,
   getPlacedKpiIds,
-  moveTab,
   normalizeEditorTabs,
-  removeTab,
   removeWidgetFromLayout,
-  renameTab,
   updateActiveEditorTab,
   type DashboardEditorState,
-  type DashboardSavePayloadOverrides,
 } from '@/components/dashboard/logic/editor-state';
+import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
+import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
+import { useDashboardLock } from '@/components/dashboard/hooks/useDashboardLock';
+import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardAutosave';
+import { useCrossTabDrag } from '@/components/dashboard/hooks/useCrossTabDrag';
+import { buildAddWidgetHandlers } from '@/components/dashboard/widgets/add-widget-handlers';
+import { DashboardBuilderHeader } from '@/components/dashboard/builder/DashboardBuilderHeader';
+import { useDashboardSave } from '@/components/dashboard/builder/useDashboardSave';
+import { useBuilderCanvasSize } from '@/components/dashboard/builder/useBuilderCanvasSize';
+import { useBuilderTabs } from '@/components/dashboard/builder/useBuilderTabs';
+import { useGridCommits } from '@/components/dashboard/builder/useGridCommits';
+import { scrollToWidgetIfNeeded } from '@/components/dashboard/builder/scroll-to-widget';
+import { BuilderCanvas } from '@/components/dashboard/builder/BuilderCanvas';
+import { BuilderModals } from '@/components/dashboard/builder/BuilderModals';
+import { CrossTabDragOverlay } from '@/components/dashboard/builder/CrossTabDragOverlay';
 
-// Types
-// DashboardComponentType is imported from '@/types/dashboard' (single source, includes KPI).
-
-interface DashboardLayout {
-  i: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  minW?: number;
-  maxW?: number;
-  minH?: number;
-  maxH?: number;
-}
+/** Undo history keeps this many steps (E2E: "Undo history keeps 20 steps"). */
+const UNDO_HISTORY_DEPTH = 20;
 
 interface DashboardBuilderV2Props {
   dashboardId?: number;
@@ -157,16 +124,15 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
         tabs: initialTabs,
         activeTabId: initialTabs[0].id,
       },
-      20
+      UNDO_HISTORY_DEPTH
     );
 
     // Applied filters state - only updates when filters are applied (causes chart re-renders)
-    const [appliedFilters, setAppliedFilters] = useState<Record<string, any>>({});
+    const [appliedFilters, setAppliedFilters] = useState<Record<string, unknown>>({});
 
     // Get initial target screen size from initialData, default to desktop
     const initialTargetScreenSize: ScreenSizeKey =
       (initialData?.target_screen_size as ScreenSizeKey) || 'desktop';
-
     // Target screen size (fixed for the builder's lifetime — nothing changes it)
     const [targetScreenSize] = useState<ScreenSizeKey>(initialTargetScreenSize);
 
@@ -185,6 +151,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const { data: chartsData, isLoading: chartsLoading } = useCharts
       ? useCharts()
       : { data: [], isLoading: false };
+
     const {
       showFilterModal,
       selectedFilterForEdit,
@@ -193,14 +160,10 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       handleFilterSave,
       handleEditFilter,
     } = useBuilderFilters(dashboardId);
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-    const [saveError, setSaveError] = useState<string | null>(null);
     const { lockToken, unlockDashboard } = useDashboardLock(dashboardId);
 
     // Filters panel collapse state
     const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
-
     const [title, setTitle] = useState(initialData?.title || 'Untitled Dashboard');
     const [description, setDescription] = useState(initialData?.description || '');
     const [isEditingTitle, setIsEditingTitle] = useState(isNewDashboard || false);
@@ -218,29 +181,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       stateRef.current = state;
     }, [state]);
 
-    const flushActiveRichText = useCallback((): DashboardEditorState => {
-      const detail: RichTextFlushEventDetail = { updates: [] };
-      document.dispatchEvent(new CustomEvent(DASHBOARD_RICH_TEXT_FLUSH_EVENT, { detail }));
-      if (!detail.updates.length) return stateRef.current;
-
-      const nextState = applyRichTextUpdates(stateRef.current, detail.updates);
-      stateRef.current = nextState;
-      setState(nextState);
-      return nextState;
-    }, [setState]);
-    const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
-    const [containerWidth, setContainerWidth] = useState(
-      SCREEN_SIZES[targetScreenSize]?.width || 1200
-    );
-    const [actualContainerWidth, setActualContainerWidth] = useState(
-      SCREEN_SIZES[targetScreenSize]?.width || 1200
-    );
+    // Ref for the canvas container (gray area)
+    const canvasRef = useRef<HTMLDivElement>(null);
+    // Ref for the white dashboard container (actual boundary)
+    const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
     // Responsive layout hook
     const responsive = useResponsiveLayout();
-
-    // Get current screen size config
-    const currentScreenConfig = SCREEN_SIZES[targetScreenSize];
+    const { currentScreenConfig, actualContainerWidth } = useBuilderCanvasSize(
+      targetScreenSize,
+      dashboardContainerRef
+    );
 
     // Dashboard animation hook
     // Note: spaceMakingConfig.enabled is set to false to prevent charts from
@@ -255,152 +206,19 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       },
     });
 
-    // Track actual dashboard container height for snap indicators
-    const [dashboardActualHeight, setDashboardActualHeight] = useState(
-      Math.max(currentScreenConfig.height, 400)
-    );
-
     // Effective filter layout (combines user choice with responsive logic)
     // For desktop: always use vertical (sidebar), for mobile/tablet: use horizontal (top bar)
     const filterLayout = responsive.isDesktop ? 'vertical' : 'horizontal';
 
-    // Ref for the canvas container (gray area)
-    const canvasRef = useRef<HTMLDivElement>(null);
-    // Ref for the white dashboard container (actual boundary)
-    const dashboardContainerRef = useRef<HTMLDivElement>(null);
-
-    // Smart scroll function - only scrolls if component is actually out of view
-    const scrollToComponentIfNeeded = (componentId: string) => {
-      setTimeout(() => {
-        if (!canvasRef.current || !dashboardContainerRef.current) return;
-
-        const canvas = canvasRef.current;
-
-        // Find the newly added component element
-        const componentElement = canvas.querySelector(`[data-component-id="${componentId}"]`);
-        if (!componentElement) return;
-
-        // Get container and component positions
-        const canvasRect = canvas.getBoundingClientRect();
-        const componentRect = componentElement.getBoundingClientRect();
-
-        // Check if component is actually outside the visible area
-        const isComponentBelowView = componentRect.bottom > canvasRect.bottom;
-        const isComponentAboveView = componentRect.top < canvasRect.top;
-
-        // Only scroll if there's actual content to scroll and component is out of view
-        const hasScrollableContent = canvas.scrollHeight > canvas.clientHeight;
-        const needsScroll = hasScrollableContent && (isComponentBelowView || isComponentAboveView);
-
-        if (needsScroll) {
-          // Smart scroll: scroll to show the component, not just to bottom
-          if (isComponentBelowView) {
-            // Scroll down to show component
-            canvas.scrollTo({
-              top: canvas.scrollTop + (componentRect.bottom - canvasRect.bottom) + 20, // 20px padding
-              behavior: 'smooth',
-            });
-          } else if (isComponentAboveView) {
-            // Scroll up to show component
-            canvas.scrollTo({
-              top: canvas.scrollTop - (canvasRect.top - componentRect.top) - 20, // 20px padding
-              behavior: 'smooth',
-            });
-          }
-        }
-      }, 100); // Small delay to ensure component is rendered
-    };
-
-    // Update container width when target screen size changes
-    useEffect(() => {
-      const newWidth = SCREEN_SIZES[targetScreenSize].width;
-      setContainerWidth(newWidth);
-      setActualContainerWidth(newWidth);
-    }, [targetScreenSize]);
-
-    // Sync dashboardActualHeight when screen config changes (ResizeObserver may not fire on config change)
-    useEffect(() => {
-      setDashboardActualHeight((prevHeight) =>
-        Math.max(prevHeight, currentScreenConfig.height, 400)
-      );
-    }, [currentScreenConfig.height, targetScreenSize]);
-
-    // Observe WHITE dashboard container for responsive width (not gray outer container)
-    useEffect(() => {
-      if (!dashboardContainerRef.current) return undefined;
-
-      const handleResize = (entries: ResizeObserverEntry[]): void => {
-        for (const entry of entries) {
-          const { width } = entry.contentRect;
-          // Use full available WHITE container width - let charts fill all available space
-          setActualContainerWidth(width);
-
-          // Track actual container height for snap indicators
-          // Use scrollHeight to get the full content height including overflow
-          const actualHeight = (entry.target as HTMLElement).scrollHeight;
-          setDashboardActualHeight(Math.max(actualHeight, currentScreenConfig.height, 400));
-        }
-      };
-
-      const resizeObserver = new ResizeObserver(handleResize);
-      resizeObserver.observe(dashboardContainerRef.current);
-
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }, [containerWidth, currentScreenConfig.height]);
-
-    // Save dashboard.
-    // Resolves to whether the PUT succeeded. Errors are handled here (save status + inline
-    // error) rather than thrown, so without a return value a caller cannot tell a failed
-    // save from a successful one — and DASHBOARD_UPDATED must never count a failure.
-    const saveDashboard = async (
-      overrides: DashboardSavePayloadOverrides = {},
-      flushRichText = true
-    ): Promise<boolean> => {
-      if (!dashboardId) return false;
-
-      const editorState = flushRichText ? flushActiveRichText() : stateRef.current;
-
-      setIsSaving(true);
-      setSaveStatus('saving');
-      setSaveError(null);
-
-      try {
-        // Filters are no longer included in dashboard PUT payload - managed via separate endpoints
-
-        const payload = buildDashboardSavePayload({
-          title,
-          description,
-          targetScreenSize,
-          filterLayout,
-          tabs: editorState.tabs,
-          overrides,
-        });
-
-        await apiPut(`/api/dashboards/${dashboardId}/`, payload);
-
-        setSaveStatus('saved');
-        // Reset save status after 3 seconds
-        setTimeout(() => {
-          setSaveStatus('idle');
-        }, 3000);
-        return true;
-      } catch (error: any) {
-        console.error('Failed to save dashboard:', error.message || 'Please try again');
-        setSaveStatus('error');
-        setSaveError(error.message || 'Failed to save dashboard. Please try again.');
-
-        // Reset error status after 5 seconds
-        setTimeout(() => {
-          setSaveStatus('idle');
-          setSaveError(null);
-        }, 5000);
-        return false;
-      } finally {
-        setIsSaving(false);
-      }
-    };
+    const { saveStatus, saveError, saveDashboard, flushActiveRichText } = useDashboardSave({
+      dashboardId,
+      stateRef,
+      setState,
+      title,
+      description,
+      targetScreenSize,
+      filterLayout,
+    });
 
     const { holdAfterUndoRedo, isUndoRedoOperationRef } = useDashboardAutosave(
       dashboardId,
@@ -479,108 +297,24 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [dashboardId, lockToken, saveDashboard, unlockDashboard]
     );
 
-    // ===== Tab Handlers =====
+    const { handleTabChange, handleTabAdd, handleTabRemove, handleTabRename, handleTabReorder } =
+      useBuilderTabs({
+        dashboardId,
+        stateRef,
+        setState,
+        setStateWithoutHistory,
+        flushActiveRichText,
+        setDragPreviewTabId,
+      });
 
-    // Tab selection is navigation, not an edit, so it does not add a history entry.
-    const handleTabChange = useCallback(
-      (tabId: string) => {
-        if (!stateRef.current.tabs.some((tab) => tab.id === tabId)) return;
-        flushActiveRichText();
-        setDragPreviewTabId(null);
-        setStateWithoutHistory((prev) => ({ ...prev, activeTabId: tabId }));
-      },
-      [flushActiveRichText, setStateWithoutHistory]
-    );
-
-    // The three tab-lifecycle events fire from these handlers rather than from TabBar,
-    // which has no dashboardId. Every add/remove/rename control in TabBar funnels through
-    // here, so this is also the one place that can't be bypassed by a new button.
-    const handleTabAdd = useCallback(
-      (newTab: DashboardTab) => {
-        setState((prev) => addTab(prev, newTab));
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_CREATED, { dashboard_id: dashboardId });
-      },
-      [setState]
-    );
-
-    // Handle removing a tab
-    const handleTabRemove = useCallback(
-      (tabId: string) => {
-        let removed = false;
-        setState((prev) => {
-          const next = removeTab(prev, tabId);
-          if (next !== prev) removed = true;
-          return next;
-        });
-        // Only on a real removal — the last tab can't be deleted, and an unknown id is a
-        // no-op, so tracking before this guard would count deletions that never happened.
-        if (removed) {
-          trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_DELETED, { dashboard_id: dashboardId });
-        }
-      },
-      [setState]
-    );
-
-    // Handle renaming a tab
-    const handleTabRename = useCallback(
-      (tabId: string, newTitle: string) => {
-        setState((prev) => renameTab(prev, tabId, newTitle));
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_RENAMED, { dashboard_id: dashboardId });
-      },
-      [setState]
-    );
-
-    const handleTabReorder = useCallback(
-      (tabId: string, toIndex: number) => {
-        const currentTabs = stateRef.current.tabs;
-        const fromIndex = currentTabs.findIndex((tab) => tab.id === tabId);
-        const destinationIndex = Math.max(0, Math.min(currentTabs.length - 1, toIndex));
-        if (fromIndex < 0 || destinationIndex === fromIndex) return;
-
-        setState((prev) => moveTab(prev, tabId, toIndex));
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_TAB_REORDERED, {
-          dashboard_id: dashboardId,
-          from_index: fromIndex,
-          to_index: destinationIndex,
-        });
-      },
-      [setState]
-    );
-
-    // ===== End Tab Handlers =====
-
-    // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
-    // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
-    // drags/resizes enforce them natively. Text widgets use content-aware minimums.
-    const applyItemConstraints = useCallback(
-      (items: DashboardLayout[]): DashboardLayout[] =>
-        constrainLayoutItems(items, getActiveEditorTab(stateRef.current).components),
-      []
-    );
+    const { resizingItems, handleGridDragStop, handleResizeStart, handleResizeStop } =
+      useGridCommits({ stateRef, setState, isUndoRedoOperationRef });
 
     // onLayoutChange is a no-op for state. In the grid model each widget owns its (x, y, w, h);
     // RGL owns positions during a gesture and reports the final, gravity-up-compacted layout via
     // onDragStop / onResizeStop — those are the single commit points to history. Writing here too
     // would double-commit and pollute undo history.
     const handleLayoutChange = useCallback(() => {}, []);
-
-    // A drag on the grid ended: commit RGL's final layout as one history entry.
-    const handleGridDragStop = useCallback(
-      (layout: DashboardLayout[], releasedOverTab: boolean) => {
-        // Releasing over a tab before the dwell completes cancels instead of committing
-        // a surprising edge position back into the source grid.
-        if (!releasedOverTab && !isUndoRedoOperationRef.current) {
-          const next = applyItemConstraints(layout);
-          setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
-        }
-
-        const walkthrough = useInsightWalkthroughStore.getState();
-        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
-          walkthrough.advanceTo('builder_save');
-        }
-      },
-      [applyItemConstraints, setState, isUndoRedoOperationRef]
-    );
 
     const {
       crossTabDrag,
@@ -602,42 +336,9 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       onGridDragStop: handleGridDragStop,
     });
 
-    // Track if we're currently resizing
-    const [isResizing, setIsResizing] = useState(false);
-
-    // Handle resize start
-    const handleResizeStart = useCallback(
-      (_layout: DashboardLayout[], _oldItem: DashboardLayout, newItem: DashboardLayout) => {
-        setResizingItems((prev) => new Set([...prev, newItem.i]));
-        setIsResizing(true);
-      },
-      []
-    );
-
-    // Handle resize stop - RGL pushes overlapped neighbors down and compacts; commit the
-    // final layout to history with min-size constraints reapplied. Live min-size enforcement
-    // during the drag is handled natively by RGL via each item's minW/minH.
-    const handleResizeStop = useCallback(
-      (layout: DashboardLayout[], _oldItem: DashboardLayout, newItem: DashboardLayout) => {
-        setResizingItems((prev) => {
-          const next = new Set(prev);
-          next.delete(newItem.i);
-          return next;
-        });
-        setIsResizing(false);
-
-        if (!isUndoRedoOperationRef.current) {
-          const next = applyItemConstraints(layout);
-          setState((prev) => updateActiveEditorTab(prev, { layout_config: next }));
-        }
-
-        const walkthrough = useInsightWalkthroughStore.getState();
-        if (walkthrough.active && walkthrough.stage === 'builder_resize') {
-          walkthrough.advanceTo('builder_save');
-        }
-      },
-      [setState, applyItemConstraints]
-    );
+    // Smart scroll function - only scrolls if component is actually out of view
+    const scrollToComponentIfNeeded = (componentId: string) =>
+      scrollToWidgetIfNeeded(canvasRef, dashboardContainerRef, componentId);
 
     const { handleChartSelected, handleKPISelected, addTextComponent } = buildAddWidgetHandlers({
       dashboardId,
@@ -783,18 +484,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
-        {crossTabDrag?.phase === 'handoff' &&
-          typeof document !== 'undefined' &&
-          createPortal(
-            <div
-              className="pointer-events-none fixed z-[10000] -translate-x-1/2 -translate-y-1/2 rounded-md border-2 border-blue-500 bg-blue-50/95 px-3 py-2 text-sm font-medium text-blue-700 shadow-xl"
-              style={{ left: crossTabDrag.clientX, top: crossTabDrag.clientY }}
-              data-testid="cross-tab-drag-overlay"
-            >
-              Move {crossTabDrag.componentType} to this tab
-            </div>,
-            document.body
-          )}
+        <CrossTabDragOverlay session={crossTabDrag} />
         {/* Fixed Header with Title and Toolbar */}
         <DashboardBuilderHeader
           title={title}
@@ -890,140 +580,54 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             />
 
             {/* Dashboard Canvas - Responsive Container */}
-            <div ref={canvasRef} className="flex-1 overflow-auto bg-gray-50 p-4 pb-[150px] min-w-0">
-              {/* Canvas container with full width */}
-              <div
-                ref={dashboardContainerRef}
-                className="bg-white dashboard-canvas-responsive"
-                style={{
-                  width: '100%',
-                  // Calculate minimum height based on actual content:
-                  // Find the lowest item (y + h) and multiply by GRID_ROW_HEIGHT + padding
-                  minHeight: Math.max(
-                    currentScreenConfig.height,
-                    400,
-                    // Calculate content height from layout items
-                    activeLayout.length > 0
-                      ? Math.max(
-                          ...activeLayout.map((item) => (item.y + item.h) * GRID_ROW_HEIGHT)
-                        ) + 100
-                      : 0
-                  ),
-                  position: 'relative',
-                }}
-              >
-                {handoffPlaceholderStyle && (
-                  <div
-                    className="pointer-events-none absolute z-30 rounded-md border-2 border-dashed border-blue-500 bg-blue-100/50 shadow-inner"
-                    style={handoffPlaceholderStyle}
-                    data-testid="cross-tab-drop-placeholder"
-                  />
-                )}
-                <GridLayout
-                  // The handoff grid can receive the tail of RGL's original mouse gesture.
-                  // Remount it once more when the handoff settles so RGL cannot retain an
-                  // activeDrag placeholder over the newly inserted destination widget.
-                  key={`dashboard-grid-${renderedActiveTabId}-${
-                    crossTabDrag?.phase === 'handoff' ? 'handoff' : 'settled'
-                  }`}
-                  className="layout relative z-10"
-                  data-grid-instance={`${renderedActiveTabId}-${
-                    crossTabDrag?.phase === 'handoff' ? 'handoff' : 'settled'
-                  }`}
-                  data-grid-model="true"
-                  layout={activeLayout}
-                  cols={currentScreenConfig.cols} // Always exactly 12 columns (Superset-style)
-                  rowHeight={GRID_ROW_HEIGHT}
-                  width={actualContainerWidth} // Use available container width - columns adjust to fit
-                  onLayoutChange={handleLayoutChange}
-                  onDragStart={handleDragStart}
-                  onDrag={handleDrag}
-                  onDragStop={handleDragStop}
-                  onResizeStart={handleResizeStart}
-                  onResizeStop={handleResizeStop}
-                  draggableCancel=".drag-cancel"
-                  // Grid model: each widget owns its (x, y, w, h). Gravity-up is the only
-                  // automatic behaviour; neighbours are pushed down (never sideways) on collision.
-                  compactType="vertical"
-                  preventCollision={false}
-                  allowOverlap={false}
-                  margin={GRID_MARGIN} // Match preview mode spacing
-                  containerPadding={GRID_CONTAINER_PADDING} // Match preview mode padding
-                  autoSize={true}
-                  useCSSTransforms={true}
-                  transformScale={1}
-                  isDraggable={true}
-                  isResizable={true}
-                  resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
-                >
-                  {activeLayout.map((item) => {
-                    const component = activeComponents[item.i];
-                    if (!component) return null;
-                    return (
-                      // RGL requires the immediate child to carry key={item.i}; the wrapping div
-                      // preserves that contract while DashboardCell handles all visual content.
-                      <div key={item.i}>
-                        <DashboardCell
-                          item={item}
-                          component={component}
-                          isAnimating={dashboardAnimation.animatingComponents.has(item.i)}
-                          isBeingPushed={false}
-                          isDraggedComponent={draggedItem?.i === item.i}
-                          spaceMakingActive={false}
-                          animationStyles={dashboardAnimation.getAnimationStyles(item.i)}
-                          isResizing={resizingItems.has(item.i)}
-                          appliedFilters={appliedFilters}
-                          initialFilters={initialFilters}
-                          dashboardId={dashboardId}
-                          onViewChart={handleViewChart}
-                          onEditChart={handleEditChart}
-                          onViewKpi={handleViewKpi}
-                          onEditKpi={handleEditKpi}
-                          onRemove={stableRemoveComponent}
-                          onUpdate={stableUpdateComponent}
-                        />
-                      </div>
-                    );
-                  })}
-                </GridLayout>
-              </div>
-            </div>
+            <BuilderCanvas
+              canvasRef={canvasRef}
+              dashboardContainerRef={dashboardContainerRef}
+              screenHeight={currentScreenConfig.height}
+              cols={currentScreenConfig.cols}
+              containerWidth={actualContainerWidth}
+              activeLayout={activeLayout}
+              activeComponents={activeComponents}
+              renderedActiveTabId={renderedActiveTabId}
+              isHandoff={crossTabDrag?.phase === 'handoff'}
+              handoffPlaceholderStyle={handoffPlaceholderStyle}
+              onLayoutChange={handleLayoutChange}
+              onDragStart={handleDragStart}
+              onDrag={handleDrag}
+              onDragStop={handleDragStop}
+              onResizeStart={handleResizeStart}
+              onResizeStop={handleResizeStop}
+              animatingComponents={dashboardAnimation.animatingComponents}
+              getAnimationStyles={dashboardAnimation.getAnimationStyles}
+              draggedItemId={draggedItem?.i}
+              resizingItems={resizingItems}
+              appliedFilters={appliedFilters}
+              initialFilters={initialFilters}
+              dashboardId={dashboardId}
+              onViewChart={handleViewChart}
+              onEditChart={handleEditChart}
+              onViewKpi={handleViewKpi}
+              onEditKpi={handleEditKpi}
+              onRemove={stableRemoveComponent}
+              onUpdate={stableUpdateComponent}
+            />
           </div>
         </div>{' '}
         {/* Close Main Content Area */}
-        {/* Chart Selector Modal */}
-        <ChartSelectorModal
-          open={showChartSelector}
-          onClose={() => setShowChartSelector(false)}
-          onSelect={handleChartSelected}
+        <BuilderModals
+          showChartSelector={showChartSelector}
+          onCloseChartSelector={() => setShowChartSelector(false)}
+          onChartSelected={handleChartSelected}
           excludedChartIds={getExcludedChartIds()}
-        />
-        <KPISelectorModal
-          open={showKPISelector}
-          onClose={() => setShowKPISelector(false)}
-          onSelect={handleKPISelected}
+          showKPISelector={showKPISelector}
+          onCloseKPISelector={() => setShowKPISelector(false)}
+          onKPISelected={handleKPISelected}
           excludedKPIIds={getExcludedKPIIds()}
-        />
-        {/* Filter Config Modal */}
-        <FilterConfigModal
-          open={showFilterModal}
-          onClose={closeFilterModal}
-          onSave={handleFilterSave}
-          mode={selectedFilterForEdit ? 'edit' : 'create'}
-          filterId={selectedFilterForEdit?.id ? Number(selectedFilterForEdit.id) : undefined}
+          showFilterModal={showFilterModal}
+          onCloseFilterModal={closeFilterModal}
+          onFilterSave={handleFilterSave}
+          selectedFilterForEdit={selectedFilterForEdit}
           dashboardId={dashboardId}
-          initialData={
-            selectedFilterForEdit
-              ? {
-                  name: selectedFilterForEdit.name,
-                  schema_name: selectedFilterForEdit.schema_name,
-                  table_name: selectedFilterForEdit.table_name,
-                  column_name: selectedFilterForEdit.column_name,
-                  filter_type: selectedFilterForEdit.filter_type as DashboardFilterType,
-                  settings: selectedFilterForEdit.settings,
-                }
-              : undefined
-          }
         />
       </div>
     );
