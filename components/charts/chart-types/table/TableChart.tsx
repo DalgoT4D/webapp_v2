@@ -1,26 +1,9 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import {
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  AlertCircle,
-  ChevronFirst,
-  ChevronLast,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { type NumberFormat, type DateFormat } from '@/lib/formatters';
 import { getTableTheme } from '@/components/charts/styling/table-themes';
 import { useTableSearch } from '../../hooks/useTableSearch';
@@ -33,8 +16,10 @@ import {
   isValidUrl,
   normalizeUrl,
 } from './table-cells';
+import { TableChartPagination } from './TableChartPagination';
+import { TableChartHeaderRow } from './TableChartHeaderRow';
 
-interface TableChartProps {
+export interface TableChartProps {
   data?: Record<string, any>[];
   config?: {
     table_columns?: string[];
@@ -258,49 +243,15 @@ export function TableChart({
       <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 z-20" style={{ backgroundColor: theme.header }}>
-            <TableRow>
-              {columns.map((column) => {
-                const sortDirection = getSortDirection(column);
-                const canSort = !!onSort;
-
-                return (
-                  <TableHead
-                    key={column}
-                    className={`font-semibold py-2 px-2 ${getAlignmentClass(config.columnAlignment?.[column], columns, column, data[0]?.[column])} ${
-                      config.freezeFirstColumn && columns.indexOf(column) === 0
-                        ? 'sticky left-0 z-10 border-r shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
-                        : ''
-                    }`}
-                    style={{
-                      color: theme.headerText,
-                      backgroundColor: theme.header,
-                      borderColor: theme.border,
-                    }}
-                  >
-                    {canSort ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                        onClick={() => handleSort(column)}
-                        data-testid={`chart-table-sort-${column}`}
-                      >
-                        <span className="mr-1">{column}</span>
-                        {sortDirection === 'asc' ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : sortDirection === 'desc' ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <div className="h-3 w-3" />
-                        )}
-                      </Button>
-                    ) : (
-                      column
-                    )}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
+            <TableChartHeaderRow
+              columns={columns}
+              config={config}
+              firstRow={data[0]}
+              theme={theme}
+              onSort={onSort}
+              getSortDirection={getSortDirection}
+              handleSort={handleSort}
+            />
           </TableHeader>
           <TableBody>
             {paginatedData.map((row, index) => {
@@ -428,156 +379,16 @@ export function TableChart({
       </div>
 
       {/* Pagination Controls */}
-      {(isServerSidePagination ? (pagination?.total || 0) > 0 : data.length > 0) && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {isServerSidePagination ? (
-                  <>
-                    Showing {(pagination!.page - 1) * pagination!.pageSize + 1} to{' '}
-                    {Math.min(pagination!.page * pagination!.pageSize, pagination!.total)} of{' '}
-                    {pagination!.total.toLocaleString()} rows
-                  </>
-                ) : (
-                  <>
-                    Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {Math.min(currentPage * pageSize, data.length)} of{' '}
-                    {data.length.toLocaleString()} rows
-                  </>
-                )}
-              </span>
-              {(isServerSidePagination ? pagination?.onPageSizeChange : true) && (
-                <Select
-                  value={
-                    isServerSidePagination ? pagination!.pageSize.toString() : pageSize.toString()
-                  }
-                  onValueChange={(value) => {
-                    const newPageSize = parseInt(value);
-                    if (isServerSidePagination) {
-                      pagination?.onPageSizeChange?.(newPageSize);
-                    } else {
-                      setPageSize(newPageSize);
-                      setCurrentPage(1);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]" data-testid="chart-table-page-size">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10" data-testid="chart-table-page-size-option-10">
-                      10
-                    </SelectItem>
-                    <SelectItem value="20" data-testid="chart-table-page-size-option-20">
-                      20
-                    </SelectItem>
-                    <SelectItem value="50" data-testid="chart-table-page-size-option-50">
-                      50
-                    </SelectItem>
-                    <SelectItem value="100" data-testid="chart-table-page-size-option-100">
-                      100
-                    </SelectItem>
-                    <SelectItem value="200" data-testid="chart-table-page-size-option-200">
-                      200
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(1);
-                  } else {
-                    setCurrentPage(1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-                data-testid="chart-table-first-page-btn"
-              >
-                <ChevronFirst className="h-4 w-4" />
-                <span className="sr-only">First page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page - 1);
-                  } else {
-                    setCurrentPage(currentPage - 1);
-                  }
-                }}
-                disabled={isServerSidePagination ? pagination!.page === 1 : currentPage === 1}
-                data-testid="chart-table-prev-page-btn"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous page</span>
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium" data-testid="chart-table-page-info">
-                Page {isServerSidePagination ? pagination!.page : currentPage} of {totalPages}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(pagination.page + 1);
-                  } else {
-                    setCurrentPage(currentPage + 1);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-                data-testid="chart-table-next-page-btn"
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next page</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (isServerSidePagination) {
-                    pagination?.onPageChange(Math.ceil(pagination.total / pagination.pageSize));
-                  } else {
-                    setCurrentPage(totalPages);
-                  }
-                }}
-                disabled={
-                  isServerSidePagination
-                    ? pagination!.page * pagination!.pageSize >= pagination!.total
-                    : currentPage === totalPages
-                }
-                data-testid="chart-table-last-page-btn"
-              >
-                <ChevronLast className="h-4 w-4" />
-                <span className="sr-only">Last page</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TableChartPagination
+        isServerSidePagination={isServerSidePagination}
+        pagination={pagination}
+        data={data}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        setCurrentPage={setCurrentPage}
+        setPageSize={setPageSize}
+      />
     </div>
   );
 }
