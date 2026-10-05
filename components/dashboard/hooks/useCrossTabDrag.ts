@@ -75,8 +75,8 @@ export function useCrossTabDrag({
   setDragPreviewTabId,
   onGridDragStop,
 }: UseCrossTabDragOptions) {
-  // Track if we're currently dragging (for cursor/visual state on the dragged cell)
-  const [isDragging, setIsDragging] = useState(false);
+  // Track if we're currently dragging (set, not read — kept: each change re-renders the builder)
+  const [, setIsDragging] = useState(false);
   const [draggedItem, setDraggedItem] = useState<DashboardLayoutItem | null>(null);
   const [crossTabDrag, setCrossTabDrag] = useState<CrossTabDragSession | null>(null);
   const crossTabDragRef = useRef<CrossTabDragSession | null>(null);
@@ -391,7 +391,6 @@ export function useCrossTabDrag({
   return {
     crossTabDrag,
     draggedItem,
-    isDragging,
     isDraggingRef,
     handleDragStart,
     handleDrag,

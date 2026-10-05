@@ -43,7 +43,8 @@ export function useDashboardSave({
   targetScreenSize,
   filterLayout,
 }: DashboardSaveOptions) {
-  const [isSaving, setIsSaving] = useState(false);
+  // Saving flag (set, not read — kept: each change re-renders the builder)
+  const [, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -112,5 +113,5 @@ export function useDashboardSave({
     }
   };
 
-  return { saveStatus, saveError, isSaving, saveDashboard, flushActiveRichText };
+  return { saveStatus, saveError, saveDashboard, flushActiveRichText };
 }

@@ -37,13 +37,13 @@ export function scrollToWidgetIfNeeded(
       if (isComponentBelowView) {
         // Scroll down to show component
         canvas.scrollTo({
-          top: canvas.scrollTop + (componentRect.bottom - canvasRect.bottom) + SCROLL_PADDING_PX, // 20px padding
+          top: canvas.scrollTop + (componentRect.bottom - canvasRect.bottom) + SCROLL_PADDING_PX,
           behavior: 'smooth',
         });
       } else if (isComponentAboveView) {
         // Scroll up to show component
         canvas.scrollTo({
-          top: canvas.scrollTop - (canvasRect.top - componentRect.top) - SCROLL_PADDING_PX, // 20px padding
+          top: canvas.scrollTop - (canvasRect.top - componentRect.top) - SCROLL_PADDING_PX,
           behavior: 'smooth',
         });
       }

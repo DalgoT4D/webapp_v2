@@ -31,10 +31,12 @@ interface GridCommitsOptions {
  */
 export function useGridCommits({ stateRef, setState, isUndoRedoOperationRef }: GridCommitsOptions) {
   const [resizingItems, setResizingItems] = useState<Set<string>>(new Set());
-  // Track if we're currently resizing (set, not read — kept)
-  const [isResizing, setIsResizing] = useState(false);
+  // Track if we're currently resizing (set, not read — kept: each change re-renders the builder)
+  const [, setIsResizing] = useState(false);
 
-  // Reapply per-component min-size constraints to a layout returned by RGL.
+  // Reapply per-component min-size constraints to a layout returned by RGL. Positions are
+  // owned by RGL's grid model; this only clamps w/h and stamps minW/minH/maxW so subsequent
+  // drags/resizes enforce them natively. Text widgets use content-aware minimums.
   const applyItemConstraints = useCallback(
     (items: DashboardLayoutItem[]): DashboardLayoutItem[] =>
       constrainLayoutItems(items, getActiveEditorTab(stateRef.current).components),
@@ -96,5 +98,5 @@ export function useGridCommits({ stateRef, setState, isUndoRedoOperationRef }: G
     [setState, applyItemConstraints]
   );
 
-  return { resizingItems, isResizing, handleGridDragStop, handleResizeStart, handleResizeStop };
+  return { resizingItems, handleGridDragStop, handleResizeStart, handleResizeStop };
 }

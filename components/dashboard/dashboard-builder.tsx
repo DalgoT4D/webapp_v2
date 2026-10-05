@@ -1,40 +1,25 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useDashboard } from '@/hooks/api/useDashboards';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
-import { Filter } from 'lucide-react';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { TabBar } from './tabs/TabBar';
-import { trackEvent } from '@/lib/analytics';
-import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import {
-  getChartEditUrl,
-  getChartViewUrl,
-  getKpiEditUrl,
-  getKpiViewUrl,
-  WIDGET_NAVIGATION_SOURCES,
-} from '@/lib/widget-navigation';
 import { GRID_ROW_HEIGHT, type ScreenSizeKey } from '@/components/dashboard/grid/grid-constants';
 import {
   getActiveEditorTab,
   getPlacedChartIds,
   getPlacedKpiIds,
   normalizeEditorTabs,
-  removeWidgetFromLayout,
-  updateActiveEditorTab,
   type DashboardEditorState,
 } from '@/components/dashboard/logic/editor-state';
-import { normalizeBuilderFilters } from '@/components/dashboard/logic/builder-filters';
 import { useBuilderFilters } from '@/components/dashboard/hooks/useBuilderFilters';
 import {
   useDashboardLock,
@@ -52,6 +37,13 @@ import { scrollToWidgetIfNeeded } from '@/components/dashboard/builder/scroll-to
 import { BuilderCanvas } from '@/components/dashboard/builder/BuilderCanvas';
 import { BuilderModals } from '@/components/dashboard/builder/BuilderModals';
 import { CrossTabDragOverlay } from '@/components/dashboard/builder/CrossTabDragOverlay';
+import { useBuilderFilterSource } from '@/components/dashboard/builder/useBuilderFilterSource';
+import { useUndoRedoShortcuts } from '@/components/dashboard/builder/useUndoRedoShortcuts';
+import { useBuilderCleanupHandle } from '@/components/dashboard/builder/useBuilderCleanupHandle';
+import { useBuilderComponentActions } from '@/components/dashboard/builder/useBuilderComponentActions';
+import { useWidgetNavigationHandlers } from '@/components/dashboard/builder/useWidgetNavigationHandlers';
+import { buildBuilderHeaderActions } from '@/components/dashboard/builder/builder-header-actions';
+import { BuilderHorizontalFilters } from '@/components/dashboard/builder/BuilderHorizontalFilters';
 
 /** Undo history keeps this many steps (E2E: "Undo history keeps 20 steps"). */
 const UNDO_HISTORY_DEPTH = 20;
@@ -83,31 +75,8 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
     // value seeds the editor state).
     const initialTabs = normalizeEditorTabs(initialData);
 
-    // Fetch live dashboard data to get updated filters
-    const {
-      data: liveDashboardData,
-      isLoading: isLoadingLiveDashboard,
-      isError: isErrorLiveDashboard,
-    } = useDashboard(dashboardId!);
-
-    // Log error if live dashboard fetch fails
-    if (isErrorLiveDashboard) {
-      console.error('Failed to fetch live dashboard data:', {
-        dashboardId,
-        error: isErrorLiveDashboard,
-        context: 'Dashboard filter synchronization',
-      });
-      // TODO: Add telemetry/error reporting here if available
-    }
-
-    // Stable filter source selection: use initialData while loading to avoid mid-lifecycle switches
-    // Once loaded, use live data with fallback to initial data
-    const dashboardFilters = isLoadingLiveDashboard
-      ? initialData?.filters // Stable: don't switch sources while loading
-      : liveDashboardData?.filters || initialData?.filters; // Live data once loaded
-
-    // Filters for the panel. Rebuilt every render on purpose (see normalizeBuilderFilters).
-    const initialFilters = normalizeBuilderFilters(dashboardFilters);
+    // Filters for the panel: live once loaded, rebuilt every render (see useBuilderFilterSource).
+    const initialFilters = useBuilderFilterSource(dashboardId, initialData);
 
     // All tab content participates in one history so a cross-tab move is atomic.
     const {
@@ -236,65 +205,9 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
       holdAfterUndoRedo();
     }, [redoBase, holdAfterUndoRedo]);
 
-    // Keyboard shortcuts for undo/redo
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        const target = e.target as HTMLElement | null;
-        if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
-          return;
-        }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          if (canUndo) undo();
-        } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-          e.preventDefault();
-          if (canRedo) redo();
-        }
-      };
+    useUndoRedoShortcuts(undo, redo, canUndo, canRedo);
 
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, canUndo, canRedo]);
-
-    // Expose cleanup function to parent component
-    useImperativeHandle(
-      ref,
-      () => ({
-        // Returns whether the pending save succeeded, so the Save-and-View path can avoid
-        // reporting an update that did not happen. Navigation/unlock still proceed either
-        // way — a failed save must not trap the user in the builder.
-        cleanup: async (): Promise<boolean> => {
-          let saved = false;
-          // First save any pending changes
-          if (dashboardId) {
-            try {
-              saved = await saveDashboard();
-            } catch (error) {
-              console.error('Error saving dashboard before cleanup:', error);
-            }
-          }
-
-          // Then unlock the dashboard
-          if (dashboardId && lockToken) {
-            await unlockDashboard();
-          }
-
-          // Clear SWR cache to ensure dashboard list refreshes
-          try {
-            const { mutate } = await import('swr');
-            mutate('/api/dashboards/'); // Refresh dashboard list
-            if (dashboardId) {
-              mutate(`/api/dashboards/${dashboardId}/`); // Refresh current dashboard
-            }
-          } catch (error) {
-            console.error('Error clearing SWR cache:', error);
-          }
-
-          return saved;
-        },
-      }),
-      [dashboardId, lockToken, saveDashboard, unlockDashboard]
-    );
+    useBuilderCleanupHandle(ref, { dashboardId, lockToken, unlockDashboard, saveDashboard });
 
     const { handleTabChange, handleTabAdd, handleTabRemove, handleTabRename, handleTabReorder } =
       useBuilderTabs({
@@ -347,21 +260,6 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
       scrollToComponentIfNeeded,
     });
 
-    // Remove component. Anything below the removed widget slides up (gravity-up);
-    // side neighbours stay where they are. One history entry.
-    const removeComponent = (componentId: string) => {
-      const removedComponent = activeComponents[componentId];
-      const removedType = removedComponent?.type;
-
-      const nextTab = removeWidgetFromLayout(activeLayout, activeComponents, componentId);
-
-      setState((prev) => updateActiveEditorTab(prev, nextTab));
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_ELEMENT_REMOVED, {
-        dashboard_id: dashboardId,
-        element_type: removedType,
-      });
-    };
-
     // Handle when filters are applied (causes chart re-renders)
     const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
       console.log('🔄 Dashboard Builder - Filters Applied:', {
@@ -380,106 +278,28 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
     const getExcludedChartIds = (): number[] => getPlacedChartIds(activeComponents);
     const getExcludedKPIIds = (): number[] => getPlacedKpiIds(activeComponents);
 
-    // Update component config
-    const updateComponent = (componentId: string, newConfig: any) => {
-      // Skip constraint-driven updates while the user is dragging to prevent layout jumps.
-      // Content constraints (minWidth/minHeight) are stored in config and propagated to RGL
-      // as minW/minH; changing them mid-drag causes items to reflow under the pointer.
-      if (isDraggingRef.current && newConfig.contentConstraints !== undefined) return;
+    const { stableRemoveComponent, stableUpdateComponent } = useBuilderComponentActions({
+      dashboardId,
+      activeLayout,
+      activeComponents,
+      setState,
+      isDraggingRef,
+    });
 
-      setState((prev) => {
-        const tab = getActiveEditorTab(prev);
-        return updateActiveEditorTab(prev, {
-          components: {
-            ...tab.components,
-            [componentId]: {
-              ...tab.components[componentId],
-              config: newConfig,
-            },
-          },
-        });
-      });
-    };
+    const { handleViewChart, handleEditChart, handleViewKpi, handleEditKpi } =
+      useWidgetNavigationHandlers(router);
 
-    // Stable ref-stabilized callbacks for DashboardCell so React.memo can do its job.
-    // Each wraps a mutable ref so the stable identity never goes stale.
-    const removeComponentRef = useRef(removeComponent);
-    removeComponentRef.current = removeComponent;
-    const stableRemoveComponent = useCallback((id: string) => removeComponentRef.current(id), []);
-
-    const updateComponentRef = useRef(updateComponent);
-    updateComponentRef.current = updateComponent;
-    const stableUpdateComponent = useCallback(
-      (id: string, config: any) => updateComponentRef.current(id, config),
-      []
-    );
-
-    const handleViewChart = useCallback(
-      (chartId: number) => {
-        router.push(getChartViewUrl(chartId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
-      },
-      [router]
-    );
-
-    const handleEditChart = useCallback(
-      (chartId: number) => {
-        router.push(getChartEditUrl(chartId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
-      },
-      [router]
-    );
-
-    const handleViewKpi = useCallback(
-      (kpiId: number) => {
-        router.push(getKpiViewUrl(kpiId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
-      },
-      [router]
-    );
-
-    const handleEditKpi = useCallback(
-      (kpiId: number) => {
-        router.push(getKpiEditUrl(kpiId, WIDGET_NAVIGATION_SOURCES.DASHBOARD));
-      },
-      [router]
-    );
-
-    // Title edit ends (Enter or blur): blank → "Untitled Dashboard", then save.
-    const handleTitleCommit = () => {
-      const finalTitle = title.trim() || 'Untitled Dashboard';
-      setTitle(finalTitle);
-      setIsEditingTitle(false);
-      saveDashboard();
-    };
-
-    // PINNED-BUGS: ""No charts → go create one" redirect can never fire — builder expects plain array, API returns paginated object"
-    const handleAddChartClick = () => {
-      if (!chartsLoading && chartsData && Array.isArray(chartsData) && chartsData.length === 0) {
-        router.push('/charts/new?from=dashboard');
-      } else {
-        setShowChartSelector(true);
-      }
-    };
-
-    const handleSaveClick = async () => {
-      // Fire only on explicit user save (not the autosave/title-blur/resize
-      // paths), and only once the PUT has actually succeeded — saveDashboard
-      // handles its own errors, so firing before the await counted failed
-      // saves as updates. The Save-and-View path fires the same event from
-      // the edit page with source: SAVE_AND_VIEW.
-      const saved = await saveDashboard();
-      if (saved) {
-        trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
-          dashboard_id: dashboardId,
-          source: DASHBOARD_UPDATE_SOURCES.SAVE_BUTTON,
-        });
-      }
-      const walkthrough = useInsightWalkthroughStore.getState();
-      if (
-        walkthrough.active &&
-        (walkthrough.stage === 'builder_save' || walkthrough.stage === 'builder_resize')
-      ) {
-        walkthrough.advanceTo('builder_preview');
-      }
-    };
+    const { handleTitleCommit, handleAddChartClick, handleSaveClick } = buildBuilderHeaderActions({
+      dashboardId,
+      title,
+      setTitle,
+      setIsEditingTitle,
+      saveDashboard,
+      chartsData,
+      chartsLoading,
+      router,
+      setShowChartSelector,
+    });
 
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
@@ -509,36 +329,18 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
           saveError={saveError}
           onSave={handleSaveClick}
         />
-        {/* Horizontal Filters Bar */}
-        {filterLayout === 'horizontal' && !isFiltersCollapsed && (
-          <UnifiedFiltersPanel
+        {/* Horizontal Filters Bar (or its "Show Filters" button) */}
+        {filterLayout === 'horizontal' && (
+          <BuilderHorizontalFilters
             initialFilters={initialFilters}
             dashboardId={dashboardId!}
-            isEditMode={true}
-            layout="horizontal"
+            isCollapsed={isFiltersCollapsed}
+            onCollapseChange={setIsFiltersCollapsed}
             onAddFilter={openFilterModal}
             onEditFilter={handleEditFilter}
             onFiltersApplied={handleFiltersApplied}
             onFiltersCleared={handleFiltersCleared}
-            onCollapseChange={setIsFiltersCollapsed}
           />
-        )}
-        {/* Show Filters Button - appears when horizontal filters are collapsed */}
-        {filterLayout === 'horizontal' && isFiltersCollapsed && initialFilters.length > 0 && (
-          <div className="border-b border-gray-200 bg-white p-2">
-            <div className="flex items-center justify-center">
-              <Button
-                onClick={() => setIsFiltersCollapsed(false)}
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                data-testid="dashboard-builder-show-filters-btn"
-              >
-                <Filter className="w-3 h-3 mr-1" />
-                Show Filters ({initialFilters.length})
-              </Button>
-            </div>
-          </div>
         )}
         {/* Main Content Area */}
         <div
