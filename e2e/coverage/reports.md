@@ -16,7 +16,7 @@ The inventory below covers the whole reports area plus the public dashboard/repo
 - **Hooks:** `hooks/api/useReports.ts`, `hooks/api/useComments.ts`, `hooks/usePdfDownload.ts`, `hooks/useMentionInput.ts`, `hooks/useOpenShareDeepLink.ts`.
 - **Types:** `types/reports.ts`, `types/comments.ts`.
 - **Shared code the reports area depends on:**
-  - `components/ui/share-modal.tsx` (with `hooks/api/useAccess.ts`)
+  - `components/share/ShareModal.tsx` (with `hooks/api/useAccess.ts`)
   - `components/access/request-edit-pill.tsx` and `request-access-dialog.tsx`
   - `components/dashboard/dashboard-native-view.tsx` (the `isReportMode` path)
   - `chart-element-view.tsx`, `kpi-chart-element.tsx`, `unified-filters-panel.tsx`, `filter-element.tsx`, `dashboard-filter-widgets.tsx`
@@ -127,7 +127,7 @@ It is only used from the list page. It supports a preselected dashboard (`dashbo
 2. Neither the chart nor the KPI lookup filters by `target_type`, so a chart and a KPI with the same id would share a state.
 3. The mark-read call after submitting (line 623) sends `chart_id: chartId`, while the call on open sends `target_id`. `MarkReadPayload` only defines `target_id`.
 
-## 5. Share via link and permissions (ShareModal, `rtype="report"`), `components/ui/share-modal.tsx`, `hooks/api/useAccess.ts`
+## 5. Share via link and permissions (ShareModal, `rtype="report"`), `components/share/ShareModal.tsx`, `hooks/api/useAccess.ts`
 
 | Feature | Where | Existing data-testids | API | Notes |
 |---|---|---|---|---|
@@ -146,7 +146,7 @@ It is only used from the list page. It supports a preselected dashboard (`dashbo
 | Footer | 1263-1275 | `share-close-btn`, `share-submit-btn` | `POST /api/access/report/{id}/grants` | SHARE is disabled with no chips. Label "SHARING…" while sending. |
 
 **Dead or unused code in this flow:**
-- `ReportShareMenu` (`components/reports/report-share-menu.tsx`): testids `report-share-btn`, `share-via-link-item`, `share-via-email-item`. It is not imported anywhere and reuses the same `report-share-btn` testid as the viewer.
+- `ReportShareMenu` (`components/reports/report-share-menu.tsx`, deleted in R0): testids `report-share-btn`, `share-via-link-item`, `share-via-email-item`. It is not imported anywhere and reuses the same `report-share-btn` testid as the viewer.
 - `updateReportSharing` and `getReportSharingStatus` (`useReports.ts:95-115`, `PUT/GET /api/reports/{id}/share/`) are also unused.
 
 ## 6. Share via email (PDF attachment), `components/reports/share-via-email-dialog.tsx`

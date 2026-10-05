@@ -762,9 +762,9 @@ Behavior summary: [BUILDER-PERMUTATIONS.md](BUILDER-PERMUTATIONS.md). Each test'
 - [ ] PERM-prefill-create table → number — ✅ perm-prefill-switch.spec.ts
 - [ ] PERM-prefill-create table → map — ✅ perm-prefill-switch.spec.ts
 - [ ] PERM-prefill-create table → pivot — 🐞 perm-prefill-switch.spec.ts (handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled)
-- [ ] PERM-prefill-create map → bar — 🐞 perm-prefill-switch.spec.ts (MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
-- [ ] PERM-prefill-create map → line — 🐞 perm-prefill-switch.spec.ts (MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
-- [ ] PERM-prefill-create map → pie — 🐞 perm-prefill-switch.spec.ts (MapDataConfigurationV3 switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
+- [ ] PERM-prefill-create map → bar — 🐞 perm-prefill-switch.spec.ts (MapDataConfiguration switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
+- [ ] PERM-prefill-create map → line — 🐞 perm-prefill-switch.spec.ts (MapDataConfiguration switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
+- [ ] PERM-prefill-create map → pie — 🐞 perm-prefill-switch.spec.ts (MapDataConfiguration switches with {chart_type} only (no keep/trim, no prefill) → no dimension, Save disabled)
 - [ ] PERM-prefill-create map → number — ✅ perm-prefill-switch.spec.ts
 - [ ] PERM-prefill-create map → table — ✅ perm-prefill-switch.spec.ts
 - [ ] PERM-prefill-create map → pivot — 🐞 perm-prefill-switch.spec.ts (handleChartTypeChange resets pivot row/column dimensions to [] → Save disabled)
@@ -1444,17 +1444,19 @@ Behavior summary: [BUILDER-PERMUTATIONS.md](BUILDER-PERMUTATIONS.md). Each test'
 
 These exist in the code but users can't reach them, so there is nothing to tick. If a refactor deletes them, no test should fail.
 
-- Chart components never used by the app: `ChartBuilder.tsx`, `ChartFiltersConfiguration.tsx`, `ChartSortConfiguration.tsx`, `ChartPaginationConfiguration.tsx`, `TableConfiguration.tsx`, `SimpleTableConfiguration.tsx`, `ChartExport.tsx`, `MiniChart.tsx`, `WorkInProgress.tsx`, `map/LayerConfiguration.tsx`, `map/MultiSelectLayerCard.tsx`, `types/map/MapChartCustomizations.tsx`, `types/table/ColumnAlignmentSection.tsx`, `ColumnOrderSection.tsx`.
-- The builder's "Y Axis" block (`ChartDataConfigurationV3`): its show condition can never be true.
-- Map "Enable Selection" switch: `MapPreview` never reads it, so it does nothing.
-- Table header click-to-sort: no page passes `onSort`.
-- Table dimension warnings about conditional formatting on reorder or remove: the pages never pass the props they need.
-- Chart hooks never called by a page: `GET /api/charts/geojsons/?…`, `/hierarchy/`, `/available-layers/`, `POST /api/charts/export/`, `/map-data/`.
-- Dashboard list card and list layouts (`dashboard-share-card-*`, `dashboard-share-mobile-*`): the view mode is hard-coded to table.
-- Dashboard features that are commented out: refresh button, delete on the view page, list search, type and published filters, screen-size and filter-layout settings.
-- Dashboard files nobody imports: `DashboardMiniPreview.tsx`, `GridGuides.tsx`, `SpaceMakingIndicators.tsx`. Dead exports: `updateDashboardSharing`, `getDashboardSharingStatus`, `getFilterOptions`, the module-level `lockDashboard` / `unlockDashboard`, the builder's `removeFilter`, `handleReset` in the numerical filter, `handleSelectionChange` in the value filter, `generateResponsiveLayouts`, `findAvailablePosition`, the list's local `debounce`, and the space-making helpers in `dashboard-animation-utils.ts` (space-making is disabled).
-- Removing an org-default landing page: the hook exists, but there is no UI for it.
-- Reports: `ReportShareMenu` (`report-share-menu.tsx`, with the "share via link" and "share via email" items), `updateReportSharing`, `getReportSharingStatus`, the Share modal's legacy email section (reports never pass `onShareViaEmail`), the create dialog's default trigger (`create-snapshot-trigger`), the create dialog's preselected-dashboard mode (nothing passes `dashboardId`), and the report `description` and email `message` fields (never sent).
+- Chart components never used by the app: `ChartBuilder.tsx`, `ChartFiltersConfiguration.tsx`, `ChartSortConfiguration.tsx`, `ChartPaginationConfiguration.tsx`, `TableConfiguration.tsx`, `SimpleTableConfiguration.tsx`, `ChartExport.tsx`, `MiniChart.tsx`, `WorkInProgress.tsx`, `map/LayerConfiguration.tsx`, `map/MultiSelectLayerCard.tsx`, `types/map/MapChartCustomizations.tsx`, `types/table/ColumnAlignmentSection.tsx`, `ColumnOrderSection.tsx` — **deleted in R0**.
+- The builder's "Y Axis" block (`ChartDataConfiguration`): its show condition can never be true — **deleted in R0**.
+- Map "Enable Selection" switch: `MapPreview` never reads it, so it does nothing — **kept** (R0 keep-list).
+- Table header click-to-sort: no page passes `onSort` — **kept** (R0 keep-list).
+- Table dimension warnings about conditional formatting on reorder or remove: the pages never pass the props they need — **kept** (R0 keep-list).
+- Chart hooks never called by a page: `GET /api/charts/geojsons/?…`, `/hierarchy/`, `/available-layers/`, `POST /api/charts/export/`, `/map-data/` — **deleted in R0**.
+- Dashboard list card and list layouts (`dashboard-share-card-*`, `dashboard-share-mobile-*`): the view mode is hard-coded to table — **deleted in R0**.
+- Dashboard features that are commented out: refresh button, delete on the view page, list search, type and published filters, screen-size and filter-layout settings — **deleted in R0**.
+- Dashboard files nobody imports: `DashboardMiniPreview.tsx`, `GridGuides.tsx`, `SpaceMakingIndicators.tsx`. Dead exports: `updateDashboardSharing`, `getDashboardSharingStatus`, `getFilterOptions`, the module-level `lockDashboard` / `unlockDashboard`, the builder's `removeFilter`, `handleReset` in the numerical filter, `handleSelectionChange` in the value filter, `generateResponsiveLayouts`, `findAvailablePosition`, the list's local `debounce`, and the space-making helpers in `dashboard-animation-utils.ts` (space-making is disabled) — **deleted in R0**.
+- Removing an org-default landing page: the hook exists, but there is no UI for it — **kept** (R0 keep-list).
+- Reports: `ReportShareMenu` (`report-share-menu.tsx`, with the "share via link" and "share via email" items), `updateReportSharing`, `getReportSharingStatus` — **deleted in R0**.
+- Reports: the Share modal's legacy email section (reports never pass `onShareViaEmail`), the create dialog's default trigger (`create-snapshot-trigger`), the create dialog's preselected-dashboard mode (nothing passes `dashboardId`) — **kept** (R0 keep-list).
+- Reports: the report `description` and email `message` fields (never sent).
 
 ---
 
@@ -1475,38 +1477,38 @@ Pure or logic-heavy functions from the inventories (charts.md §16, dashboards.m
 - [ ] `convertLayersToSimplified` — now `toSimplifiedMapFields` in `components/charts/logic/map-layers.ts` — covered by: E2E charts/builder-map.spec.ts › C-E2 map edit round trip, C-E2 picking a district / Jest `components/charts/logic/__tests__/map-layers.test.ts`
 - [ ] `convertSimplifiedToLayers` — now `toMapLayers` in `components/charts/logic/map-layers.ts` — covered by: E2E charts/builder-map.spec.ts › C-E2 (both) / Jest `components/charts/logic/__tests__/map-layers.test.ts`
 - [ ] `buildChartData` — now `buildCreateChartPayload` / `buildEditChartPayload` in `components/charts/logic/payload.ts` — covered by: E2E charts/edit.spec.ts › C-E1 per type / Jest `components/charts/logic/__tests__/payload.test.ts`
-- [ ] Edit-page chart-type switch in `handleFormChange` (`edit/page.tsx`) — covered by: ⚠️ E2E only — type-switch-matrix-edit.spec.ts (all 42 transitions) · Jest ❌ none
-- [ ] `handleChartTypeChange` keep/trim rules (`ChartDataConfigurationV3.tsx`) — covered by: E2E charts/type-switch.spec.ts (all) / Jest `components/charts/__tests__/ChartDataConfigurationV3.test.tsx`
-- [ ] `handleDatasetChange` (`ChartDataConfigurationV3.tsx`) — covered by: Jest `ChartDataConfigurationV3.test.tsx` / E2E ❌ none
+- [ ] Edit-page chart-type switch — now `legacyEditPageTypeSwitch` in `components/charts/logic/type-switch.ts` — covered by: E2E type-switch-matrix-edit.spec.ts (all 42 transitions) / Jest `components/charts/logic/__tests__/type-switch.test.ts` (84 cases)
+- [ ] `handleChartTypeChange` keep/trim rules — now `applyChartTypeChange` in `components/charts/logic/type-switch.ts` — covered by: E2E charts/type-switch.spec.ts (all) / Jest `type-switch.test.ts`, `ChartDataConfiguration.test.tsx`
+- [ ] `handleDatasetChange` — now `components/charts/logic/dataset-change.ts` — covered by: Jest `logic/__tests__/dataset-change.test.ts` / E2E ❌ none
 - [ ] `generateAutoPrefilledConfig` (`lib/chartAutoPrefill.ts`) — covered by: E2E C-B1 in builder-shared, builder-map, builder-table and builder-pivot / Jest `lib/__tests__/chartAutoPrefill.test.ts`
 - [ ] `mergeTableColumnFormatting`, `getApiCustomizations`, `resolveTableColumnOrder` (`lib/chart-payload-utils.ts`) — covered by: E2E table styling and map, pie and number save snapshots / Jest `__tests__/lib/chart-payload-utils.test.ts`
-- [ ] `formatAxisValue`, `createTooltipFormatter`, `applyNumberChartFormatting`, `applyPieChartFormatting`, `applyLineBarChartFormatting`, `applyPieDateFormatting`, `applyLineBarDateFormatting`, `sanitizeCustomizationsForChartType` (`lib/chart-formatting-utils.ts`) — covered by: E2E number/date format styling screenshots, MM-bar-2 / MM-line-2 (null decimals bug), type-switch label position / Jest partial `chart-formatting-utils` tests
-- [ ] `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` (`lib/chart-legend-utils.ts`) — covered by: E2E legend position and display screenshots (bar, line, pie) / Jest ❌ none (⚠️ E2E only)
-- [ ] `createStackedTotalFormatter`, `applyStackedBarLabels` (`lib/stacked-bar-utils.ts`) — covered by: Jest (existing stacked-bar test) / E2E ⚠️ stacked-bars screenshot without labels only
+- [ ] `formatAxisValue`, `createTooltipFormatter`, `applyNumberChartFormatting`, `applyPieChartFormatting`, `applyLineBarChartFormatting`, `applyPieDateFormatting`, `applyLineBarDateFormatting`, `sanitizeCustomizationsForChartType` — now `components/charts/chart-types/echarts/{formatting,date-formatting,data-labels}.ts` — covered by: E2E number/date format styling screenshots, MM-bar-2 / MM-line-2 (null decimals bug), type-switch label position / Jest `chart-types/echarts/__tests__/{formatting,date-formatting,data-labels}.test.ts`
+- [ ] `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` — now `chart-types/echarts/legend.ts` — covered by: E2E legend position and display screenshots (bar, line, pie) / Jest `legend.test.ts`
+- [ ] `createStackedTotalFormatter`, `applyStackedBarLabels` (`chart-types/echarts/stacked-bar.ts`) — covered by: Jest `stacked-bar.test.ts` / E2E ⚠️ stacked-bars screenshot without labels only
 - [ ] `resolveDrillDownGeoJSON` (`lib/map-drilldown-utils.ts`) — covered by: E2E map drill tests / Jest `lib/__tests__/map-drilldown-utils.test.ts`
-- [ ] `transformMapDataOverlayPayload` + simple/calculated helpers (`hooks/api/useChart.ts`) — covered by: E2E map overlay snapshots (builder-map, MM-map-1..3) / Jest ❌ none (⚠️ E2E only)
-- [ ] `applyPivotDateFormat`, `resolvePivotTotals`, `computePivotDateFormats` (`pivot-table/utils.ts`) — covered by: E2E charts/builder-pivot.spec.ts totals and date format / Jest `components/charts/pivot-table/__tests__/date-formats.test.ts`
-- [ ] `buildPivotDataFields`, `buildPivotExtraConfig`, `getPivotRenderProps` (`pivot-table/utils.ts`) — covered by: E2E pivot chart-data and save snapshots, C-E1 pivot / Jest ❌ none (⚠️ E2E only)
-- [ ] `exportPivotAsCsv` (`pivot-table/utils.ts`) — covered by: E2E charts/detail.spec.ts › [pinned] pivot export CSV, list C-L12 pivot CSV / Jest partial (imported by date-formats.test.ts; CSV output untested)
-- [ ] `calculateRowSpans` (`pivot-table/utils.ts`) — covered by: E2E pivot screenshots (merged row cells) / Jest ❌ none (⚠️ E2E only)
-- [ ] `pruneStaleFormatting` (`pivot-table/utils.ts`) — covered by: E2E ❌ none / Jest partial (referenced in date-formats.test.ts)
-- [ ] `cellsToGrid` (`pivot-table/cellsToGrid.ts`) — covered by: E2E pivot render / Jest `pivot-table/__tests__/cellsToGrid.test.ts`
-- [ ] `computeHeaderSpans`, inline `formatCell` / `getConditionalColor` (`PivotTableChart.tsx`) — covered by: E2E pivot render, MM-pivot-2 (0-decimal bug), pivot conditional formatting / Jest ❌ none (⚠️ E2E only; must be extracted first)
-- [ ] `getMetricAnalyticsProps`, `isDrillDownEnabled`, `getUsedSavedMetricIds`, `getNewlyUsedSavedMetricIds` (`components/charts/utils.ts`) — covered by: E2E saved metrics hidden in other rows, table drill toggle / Jest ❌ none (⚠️ E2E only; analytics props not checked)
-- [ ] `getAvailableColumns` (`MetricsSelector.tsx`) — covered by: E2E charts/builder-shared.spec.ts › simple: numeric-only columns / Jest via component tests
-- [ ] `summaryOf`, `autoLabel` (`MetricAccordionItem.tsx`, not exported) — covered by: E2E metric trigger and display-name assertions / Jest ❌ none (⚠️ E2E only)
-- [ ] `isValidUrl`, `normalizeUrl`, inline `formatCellValue` / `getConditionalColor` / `getAlignmentClass` (`TableChart.tsx`) — covered by: E2E table URL cells, conditional formatting, alignment / Jest `TableChart.test.tsx`
+- [ ] `transformMapDataOverlayPayload` + simple/calculated helpers — now `components/charts/logic/map-overlay.ts` — covered by: E2E map overlay snapshots (builder-map, MM-map-1..3) / Jest `logic/__tests__/map-overlay.test.ts`
+- [ ] `applyPivotDateFormat`, `resolvePivotTotals`, `computePivotDateFormats` (`chart-types/pivot-table/utils.ts`) — covered by: E2E charts/builder-pivot.spec.ts totals and date format / Jest `pivot-config.test.ts`, `date-formats.test.ts`
+- [ ] `buildPivotDataFields`, `buildPivotExtraConfig`, `getPivotRenderProps` (`chart-types/pivot-table/utils.ts`) — covered by: E2E pivot chart-data and save snapshots, C-E1 pivot / Jest `pivot-config.test.ts`, `date-formats.test.ts`
+- [ ] `exportPivotAsCsv` (`chart-types/pivot-table/utils.ts`) — covered by: E2E charts/detail.spec.ts › [pinned] pivot export CSV, list C-L12 pivot CSV / Jest `pivot-config.test.ts`, `date-formats.test.ts`
+- [ ] `calculateRowSpans` (`chart-types/pivot-table/utils.ts`) — covered by: E2E pivot screenshots (merged row cells) / Jest `pivot-config.test.ts`, `date-formats.test.ts`
+- [ ] `pruneStaleFormatting` (`chart-types/pivot-table/utils.ts`) — covered by: E2E ❌ none / Jest `pivot-config.test.ts`, `date-formats.test.ts`
+- [ ] `cellsToGrid` — now `chart-types/pivot-table/cellsToGrid.ts` — covered by: E2E pivot render / Jest `cellsToGrid.test.ts`
+- [ ] `computeHeaderSpans`, inline `formatCell` / `getConditionalColor` — now `computeHeaderSpans`, `formatPivotCell`, `getPivotConditionalColor` in `chart-types/pivot-table/pivot-cells.ts` — covered by: E2E pivot render, MM-pivot-2 (0-decimal bug), pivot conditional formatting / Jest `pivot-cells.test.ts`; effective columns + search cells in `pivot-layout.ts` / Jest `pivot-layout.test.ts` (R6)
+- [ ] `getMetricAnalyticsProps`, `isDrillDownEnabled`, `getUsedSavedMetricIds`, `getNewlyUsedSavedMetricIds` — now `components/charts/utils.ts` — covered by: E2E saved metrics hidden in other rows, table drill toggle / Jest `list/__tests__/chart-list-hooks.test.ts` (partial: `getUsedSavedMetricIds` still ⚠️)
+- [ ] `getAvailableColumns` — now `components/charts/logic/metric-columns.ts` — covered by: E2E charts/builder-shared.spec.ts › simple: numeric-only columns / Jest `logic/__tests__/metric-columns.test.ts` (R6)
+- [ ] `summaryOf`, `autoLabel` — now `components/charts/logic/metric-labels.ts` — covered by: E2E metric trigger and display-name assertions / Jest `metric-labels.test.ts`
+- [ ] `isValidUrl`, `normalizeUrl`, inline `formatCellValue` / `getConditionalColor` / `getAlignmentClass` — now `formatTableCell`, `getConditionalCellColor`, … in `chart-types/table/table-cells.ts` — covered by: E2E table URL cells, conditional formatting, alignment / Jest `table-cells.test.ts`, `TableChart.test.tsx`
 - [ ] `useTableSearch` (`components/charts/hooks/useTableSearch.ts`) — covered by: E2E table search, pivot search / Jest only through the pivot search test
-- [ ] `deepEqual` (`lib/form-utils.ts`; drives the "unsaved changes" check) — covered by: E2E charts/edit.spec.ts › C-E4 reverting, [pinned] C-B6 / Jest ❌ none (⚠️ E2E only)
-- [ ] `generateDuplicateTitle` (`lib/form-utils.ts`) plus its inline copy in `app/charts/page.tsx` — covered by: E2E charts/list.spec.ts › C-L8 / Jest ❌ none (⚠️ E2E only)
+- [ ] `deepEqual` (still `lib/form-utils.ts`; drives the "unsaved changes" check) — covered by: E2E charts/edit.spec.ts › C-E4 reverting, [pinned] C-B6 / Jest via `logic/__tests__/builder-state.test.ts`
+- [ ] `generateDuplicateTitle` (`lib/form-utils.ts`, one copy since R1e) — covered by: E2E charts/list.spec.ts › C-L8 / Jest `lib/__tests__/form-utils.test.ts`
 - [ ] `formatNumber`, `formatDate`, `NumberFormats` (`lib/formatters.ts`) — covered by: E2E number format styling / Jest (existing formatters test)
 - [ ] `parseWidgetNavigationSource`, `getChartViewUrl`, `getChartEditUrl`, `getWidgetBackLabel` (`lib/widget-navigation.ts`) — covered by: E2E C-D5, C-E6, X-1, X-2, R-V6 / Jest `lib/__tests__/widget-navigation.test.ts`
 - [ ] `statesToCsv`, `districtsToCsv` (`lib/csvUtils.ts`) — covered by: E2E map Download States / Districts CSV (filename only) / Jest ❌ none (⚠️ E2E only; contents unchecked)
 - [ ] `ChartExporter.*`, `generateFilename` (`lib/chart-export.ts`) — covered by: E2E C-D3, C-L12 filename patterns / Jest `__tests__/lib/chart-export.test.ts`
-- [ ] Table drill-down click and drill-up handlers, three copies (configure, edit, detail) — covered by: E2E builder-table drill tests, MM-table-7, detail C-D4 table / Jest ❌ none (⚠️ E2E only; the edit copy only through C-E2 table)
-- [ ] Map region-click resolver (`ChartDetailClient.tsx`) — covered by: E2E charts/builder-map.spec.ts › C-D4 detail drill tests / Jest ❌ none (⚠️ E2E only)
+- [ ] Table drill-down click and drill-up handlers, three copies (configure, edit, detail) — now one `useTableDrillDown` + `components/charts/logic/table-drilldown.ts` — covered by: E2E builder-table drill tests, MM-table-7, detail C-D4 table / Jest `table-drilldown.test.ts`
+- [ ] Map region-click resolver (`ChartDetailClient.tsx`) — now `resolveDetailRegionClick` in `components/charts/logic/map-drilldown.ts` — covered by: E2E charts/builder-map.spec.ts › C-D4 detail drill tests / Jest `map-drilldown.test.ts`
 - [ ] `getRegionTypeHierarchy`, `updateLevel` (`map/DynamicLevelConfig.tsx`) — covered by: E2E map district drill level, [pinned] UI-built hierarchy / Jest via component test
-- [ ] `lightenColor`, single-value range, `escapeHtml` (`MapPreview.tsx`) — covered by: E2E map colour-scheme screenshots (partial) / Jest ❌ none (⚠️ E2E only; single-value range not covered)
+- [ ] `lightenColor`, single-value range, `escapeHtml` — now `chart-types/map/map-scale.ts` — covered by: E2E map colour-scheme screenshots (partial) / Jest `map-scale.test.ts`; option builder `map-option.ts` / Jest `map-option.test.ts` + `MapPreview.characterization.test.tsx` (R6)
 
 ### Dashboards
 
@@ -1515,24 +1517,24 @@ Pure or logic-heavy functions from the inventories (charts.md §16, dashboards.m
 - [ ] `getDefaultFilterValues` (`lib/dashboard-filter-utils.ts`) — covered by: E2E [pinned] D-F2 applies forced 0–100, R-V3 Clear all resets to defaults / Jest ❌ none (⚠️ E2E only)
 - [ ] `isFilterValueSet` (private, `lib/dashboard-filter-utils.ts`) — covered by: E2E D-F6 applied dot, R-V3 locked filter / Jest ❌ none (⚠️ E2E only)
 - [ ] `summarizeAppliedFilters` (`lib/dashboard-filter-utils.ts`) — covered by: Jest `lib/__tests__/dashboard-filter-analytics.test.ts` / E2E ❌ none (analytics)
-- [ ] `convertFilterToConfig`, builder copy (validates and fills defaults) — covered by: E2E D-F4, D-F8 / Jest ❌ none (⚠️ E2E only)
-- [ ] `convertFilterToConfig`, view copy (`dashboard-native-view.tsx`) — covered by: E2E D-F5, D-V2, R-V3 / Jest ❌ none (⚠️ E2E only)
-- [ ] `convertFilterToConfig`, filter-modal copy (`filter-config-modal.tsx`) — covered by: E2E D-F4 edit filter / Jest ❌ none (⚠️ E2E only)
+- [ ] `convertFilterToConfig`, builder copy (validates and fills defaults) — now `normalizeBuilderFilters` in `components/dashboard/logic/builder-filters.ts` — covered by: E2E D-F4, D-F8 / Jest `builder-filters.test.ts`
+- [ ] `convertFilterToConfig`, view copy (`dashboard-native-view.tsx`) — now `toFilterConfig` in `components/dashboard/filters/filter-config.ts` — covered by: E2E D-F5, D-V2, R-V3 / Jest `filter-config.test.ts`
+- [ ] `convertFilterToConfig`, filter-modal copy (`filter-config-modal.tsx`) — deleted in R0 (never called)
 - [ ] Filter-type auto-detect, auto-name, save-settings builder (`filter-config-modal.tsx`) — covered by: E2E D-F1, [pinned] D-F2, [pinned] D-F3 create snapshots / Jest ❌ none (⚠️ E2E only)
 - [ ] `compactVertical`, `bottomY` (`lib/dashboard-animation-utils.ts`) — covered by: E2E D-B9 remove (widgets move up), D-B5 insert / Jest `lib/__tests__/dashboard-animation-utils.test.ts`
-- [ ] `generateTabId`, `createNewTab`, `getDefaultTabsConfig`, `getNextTabNumber`, `initializeTabsData`, `getActiveTabData` (tab-utils) — covered by: E2E D-T1 / Jest `components/dashboard/tabs/__tests__/tab-utils` test
+- [ ] `generateTabId`, `createNewTab`, `getDefaultTabsConfig`, `getNextTabNumber`, `initializeTabsData`, `getActiveTabData` (tab-utils) — covered by: E2E D-T1 / Jest `components/dashboard/tabs/__tests__/tab-utils.test.ts`
 - [ ] `pointerToGridPosition`, `placeItemInLayout`, `moveWidgetBetweenTabs` (cross-tab drag) — covered by: E2E D-T3 / Jest `tabs/__tests__/cross-tab-drag.test.ts`
-- [ ] `getActiveEditorTab`, `updateActiveEditorTab`, `ensureTextContentConstraints`, item-constraint logic, first-tab setup, save payload build (`dashboard-builder-v2.tsx`, inline) — covered by: E2E every `expectBuilderPayload` snapshot / Jest ❌ none (⚠️ E2E only; must be extracted first)
-- [ ] `getCurrentScreenSize`, `generateResponsiveLayoutsForPreview` (`dashboard-native-view.tsx`) — covered by: E2E view-mode renders at desktop width only / Jest ❌ none (⚠️ E2E only, one screen size)
-- [ ] List filter and sort logic, `getActiveFilterCount`, `hasActiveFilter`, pinned/regular split, pagination maths (`dashboard-list-v2.tsx`, inline) — covered by: E2E D-L1, D-L2, D-L3, D-L6 / Jest ❌ none (⚠️ E2E only)
+- [ ] `getActiveEditorTab`, `updateActiveEditorTab`, `ensureTextContentConstraints`, item-constraint logic, first-tab setup, save payload build — now `components/dashboard/logic/editor-state.ts` — covered by: E2E every `expectBuilderPayload` snapshot / Jest `logic/__tests__/editor-state.test.ts`
+- [ ] `getCurrentScreenSize`, `generateResponsiveLayoutsForPreview` — now `components/dashboard/view/view-layout.ts` — covered by: E2E view-mode renders at desktop width only / Jest `view/__tests__/view-layout.test.ts`
+- [ ] List filter and sort logic, `getActiveFilterCount`, `hasActiveFilter`, pinned/regular split, pagination maths (`dashboard-list.tsx`, inline) — now `components/dashboard/list/dashboard-list-logic.ts` + `components/list-page/list-logic.ts` — covered by: E2E D-L1, D-L2, D-L3, D-L6 / Jest `dashboard-list-logic.test.ts`, `list-logic.test.ts`
 - [ ] `generateEmbedCode` (`embed-code-dropdown.tsx`) — covered by: E2E dashboards/view.spec.ts › D-V8 embed code: options (snippet snapshots) / Jest ❌ none (⚠️ E2E only)
 - [ ] Numerical clamp `handleInputChange`, date `handleDateChange` (filter widgets) — covered by: E2E D-F2 numerical input, D-F3 datetime / Jest partial `dashboard-filter-widgets.test.tsx`
-- [ ] `legacyConfigToRichText`, `sanitizeRichTextDocument`, `richTextDocumentsEqual` (`rich-text-config.ts`) — covered by: E2E D-B7 saves / Jest `components/dashboard/__tests__/rich-text-config.test.ts`
+- [ ] `legacyConfigToRichText`, `sanitizeRichTextDocument`, `richTextDocumentsEqual` (`rich-text-config.ts`) — covered by: E2E D-B7 saves / Jest `components/dashboard/widgets/text/__tests__/rich-text-config.test.ts`
 - [ ] `resolveChartTitle`, `isTitleOverridden`, `getTitleEditorValue`, `createTitleUpdateConfig` (`lib/chart-title-utils.ts`) — covered by: E2E D-B11 (incl. pinned hide/show) / Jest `__tests__/lib/chart-title-utils.test.ts`
 - [ ] `getMinGridDimensions`, `getDefaultGridDimensions`, `calculateTextDimensions`, `getChartTypeFromConfig` (`lib/chart-size-constraints.ts`) — covered by: E2E D-B10 resize clamps (chart only) / Jest `__tests__/lib/chart-size-constraints.test.ts`
 - [ ] `useUndoRedo` (duplicate check, 20-step limit, `setStateWithoutHistory`) (`hooks/useUndoRedo.ts`) — covered by: E2E D-B12, [pinned] D-T4 / Jest ❌ none (⚠️ E2E only; 20-step limit untested)
 - [ ] `toggleFavorite` (`lib/favorite-utils.ts`) — covered by: E2E D-L4 / Jest ❌ none (⚠️ E2E only)
-- [ ] `useDashboards` response handling (plain array vs paginated) (`hooks/api/useDashboards.ts`) — covered by: E2E D-L1 (paginated only) / Jest only the share test (`useDashboards.share.test.ts`)
+- [ ] `useDashboards` response handling (plain array vs paginated) (`hooks/api/useDashboards.ts`) — covered by: E2E D-L1 (paginated only) / Jest only the share test (`useDashboards.share.test.ts`, deleted in R0)
 
 ### Reports
 
@@ -1542,18 +1544,18 @@ Pure or logic-heavy functions from the inventories (charts.md §16, dashboards.m
 - [ ] `getAvatarColor`, `getInitials` (`utils.ts`) — covered by: Jest `utils.test.ts` / E2E ❌ none
 - [ ] `parseCommentMentions`, `extractMentionedEmails` (`utils.ts`) — covered by: E2E R-M3 mention payload / Jest `comment-utils.test.ts`
 - [ ] `EMAIL_REGEX`, `MAX_RECIPIENTS` (`utils.ts`) — covered by: E2E R-V5 / Jest partial
-- [ ] `groupLayoutByRows` + height floors (`components/reports/print-layout.tsx`, not exported) — covered by: E2E R-S2 print mode (render only) / Jest ❌ none (⚠️ E2E only; row grouping and heights not checked)
+- [ ] `groupLayoutByRows` + height floors — now `components/reports/logic/print-rows.ts` — covered by: E2E R-S2 print mode (render only) / Jest `print-rows.test.ts`
 - [ ] Recipient parsing and validation (inline, `share-via-email-dialog.tsx`) — covered by: E2E R-V5 / Jest via component only
-- [ ] List sort comparator, `handleSort` toggle, pagination maths, filter parameter builder (inline, `app/reports/page.tsx`) — covered by: E2E R-L2, R-L3 (incl. pinned last-page bug) / Jest via `reports-page.test.tsx` (the parameter builder has none)
-- [ ] Date-column auto-select rule (`create-snapshot-dialog.tsx`) — covered by: E2E R-C1 (single column only) / Jest via `create-snapshot-dialog.test.tsx`
-- [ ] `startMaxDate` rule (`create-snapshot-dialog.tsx`) — covered by: ❌ none
-- [ ] Snapshot payload builder (splits `schema.table.column`) (`create-snapshot-dialog.tsx`) — covered by: E2E R-C1, R-C2, [pinned] R-C3 race snapshots / Jest via dialog test
-- [ ] "Edited" threshold check, >1000ms (`comment-popover.tsx`) — covered by: E2E R-M1 "· edited" / Jest ❌ none (⚠️ E2E only)
-- [ ] `visibleComments` filter (hide placeholders when all are deleted) (`comment-popover.tsx`) — covered by: E2E moderation placeholder (partial) / Jest partial
-- [ ] Mention filter (5 results, case-insensitive; two copies) (`comment-popover.tsx`) — covered by: E2E [pinned] R-M3 / Jest ❌ none (⚠️ E2E only)
+- [ ] List sort comparator, `handleSort` toggle, pagination maths, filter parameter builder (`app/reports/page.tsx`, inline) — now `components/list-page/{list-logic,useListSort}.ts`, `components/reports/logic/report-list.ts` — covered by: E2E R-L2, R-L3 (incl. pinned last-page bug) / Jest `list-logic.test.ts`, `report-list.test.ts`
+- [ ] Date-column auto-select rule — now `pickDefaultDateColumn` in `components/reports/logic/create-report.ts` — covered by: E2E R-C1 (single column only) / Jest `create-report.test.ts`
+- [ ] `startMaxDate` rule — now `getStartMaxDate` in `components/reports/logic/create-report.ts` — covered by: Jest `create-report.test.ts` / E2E ❌ none
+- [ ] Snapshot payload builder (splits `schema.table.column`) — now `buildCreateReportPayload`, `splitDateColumnValueOnDots` in `components/reports/logic/create-report.ts` — covered by: E2E R-C1, R-C2, [pinned] R-C3 race snapshots / Jest `create-report.test.ts`
+- [ ] "Edited" threshold check, >1000ms — now `isCommentEdited` in `components/reports/logic/comments.ts` — covered by: E2E R-M1 "· edited" / Jest `logic/__tests__/comments.test.ts`
+- [ ] `visibleComments` filter (hide placeholders when all are deleted) — now `getVisibleComments` in `components/reports/logic/comments.ts` — covered by: E2E moderation placeholder (partial) / Jest `comments.test.ts`
+- [ ] Mention filter (5 results, case-insensitive; two copies) — now `filterMentionableUsers` in `components/reports/logic/comments.ts` — covered by: E2E [pinned] R-M3 / Jest `logic/__tests__/comments.test.ts`
 - [ ] `AT_MENTION_PATTERN`, mention insertion (`hooks/useMentionInput.ts`) — covered by: E2E [pinned] R-M3 / Jest via `comment-popover.test.tsx`
 - [ ] PDF filename sanitizer (`hooks/usePdfDownload.ts`) — covered by: E2E R-V4 (plain title only) / Jest `hooks/__tests__/usePdfDownload.test.ts`
-- [ ] Comment-state lookups: viewer, chart (`chart-element-view.tsx`, buggy `chart_id`) and KPI (`kpi-chart-element.tsx`) — covered by: E2E [pinned] R-M2 / Jest `comment-states-lookup.test.ts` (copies the logic instead of importing it, so it misses the chart bug)
+- [ ] Comment-state lookups: viewer, chart (buggy `chart_id`) and KPI — now `findChartCommentStateBuggyChartIdLookup` (pinned R-M2), `findKpiCommentState`, `findSummaryCommentState` in `components/reports/logic/comments.ts` — covered by: E2E [pinned] R-M2 / Jest `comments.test.ts`; `comment-states-lookup.test.ts` now runs the real KPI function (R5a)
 - [ ] `getKpiViewUrl` and the other widget-navigation helpers (`lib/widget-navigation.ts`) — covered by: E2E X-2, D-V4 / Jest `lib/__tests__/widget-navigation.test.ts`
 - [ ] `dashboard_filters` query parsing for print mode (`app/share/report/[token]/page.tsx`) — covered by: ❌ none
 - [ ] Public dashboard embed-option parsing (`app/share/dashboard/[token]/page.tsx`) — covered by: E2E D-S3 (×3) / Jest ❌ none (⚠️ E2E only)
@@ -1578,37 +1580,15 @@ Every ❌ and ⚠️ line still open above, with the reason. Items moved to 🧑
 
 ### Functions & logic (code-level)
 
-- **Charts** · Edit-page chart-type switch in `handleFormChange` (`edit/page.tsx`) → E2E only (type-switch-matrix-edit) → add Jest characterization test
-- **Charts** · `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` (`lib/chart-legend-utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `transformMapDataOverlayPayload` + simple/calculated helpers (`hooks/api/useChart.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `buildPivotDataFields`, `buildPivotExtraConfig`, `getPivotRenderProps` (`pivot-table/utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `calculateRowSpans` (`pivot-table/utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `computeHeaderSpans`, inline `formatCell` / `getConditionalColor` (`PivotTableChart.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `getMetricAnalyticsProps`, `isDrillDownEnabled`, `getUsedSavedMetricIds`, `getNewlyUsedSavedMetricIds` (`components/charts/utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `summaryOf`, `autoLabel` (`MetricAccordionItem.tsx`, not exported) → E2E only → add Jest characterization test before changing it
-- **Charts** · `deepEqual` (`lib/form-utils.ts`; drives the "unsaved changes" check) → E2E only → add Jest characterization test before changing it
-- **Charts** · `generateDuplicateTitle` (`lib/form-utils.ts`) plus its inline copy in `app/charts/page.tsx` → E2E only → add Jest characterization test before changing it
+- **Charts** · `getUsedSavedMetricIds`, `getNewlyUsedSavedMetricIds` (`components/charts/utils.ts`) → E2E only → add Jest characterization test before changing it
 - **Charts** · `statesToCsv`, `districtsToCsv` (`lib/csvUtils.ts`) → E2E only → add Jest characterization test before changing it
-- **Charts** · Table drill-down click and drill-up handlers, three copies (configure, edit, detail) → E2E only → add Jest characterization test before changing it
-- **Charts** · Map region-click resolver (`ChartDetailClient.tsx`) → E2E only → add Jest characterization test before changing it
-- **Charts** · `lightenColor`, single-value range, `escapeHtml` (`MapPreview.tsx`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `resolveDashboardFilters` (`lib/dashboard-filter-utils.ts`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `formatAsChartFilters`, `createFilterConfigLookup` (`lib/dashboard-filter-utils.ts`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `getDefaultFilterValues` (`lib/dashboard-filter-utils.ts`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `isFilterValueSet` (private, `lib/dashboard-filter-utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · `convertFilterToConfig`, builder copy (validates and fills defaults) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · `convertFilterToConfig`, view copy (`dashboard-native-view.tsx`) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · `convertFilterToConfig`, filter-modal copy (`filter-config-modal.tsx`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · Filter-type auto-detect, auto-name, save-settings builder (`filter-config-modal.tsx`) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · `getActiveEditorTab`, `updateActiveEditorTab`, `ensureTextContentConstraints`, item-constraint logic, first-tab setup, save payload build (`dashboard-builder-v2.tsx`, inline) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · `getCurrentScreenSize`, `generateResponsiveLayoutsForPreview` (`dashboard-native-view.tsx`) → E2E only → add Jest characterization test before changing it
-- **Dashboards** · List filter and sort logic, `getActiveFilterCount`, `hasActiveFilter`, pinned/regular split, pagination maths (`dashboard-list-v2.tsx`, inline) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `generateEmbedCode` (`embed-code-dropdown.tsx`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `useUndoRedo` (duplicate check, 20-step limit, `setStateWithoutHistory`) (`hooks/useUndoRedo.ts`) → E2E only → add Jest characterization test before changing it
 - **Dashboards** · `toggleFavorite` (`lib/favorite-utils.ts`) → E2E only → add Jest characterization test before changing it
-- **Reports** · `groupLayoutByRows` + height floors (`components/reports/print-layout.tsx`, not exported) → E2E only → add Jest characterization test before changing it
-- **Reports** · `startMaxDate` rule (`create-snapshot-dialog.tsx`) → no test at all → add Jest characterization test
-- **Reports** · "Edited" threshold check, >1000ms (`comment-popover.tsx`) → E2E only → add Jest characterization test before changing it
-- **Reports** · Mention filter (5 results, case-insensitive; two copies) (`comment-popover.tsx`) → E2E only → add Jest characterization test before changing it
 - **Reports** · `dashboard_filters` query parsing for print mode (`app/share/report/[token]/page.tsx`) → no test at all → add Jest characterization test
 - **Reports** · Public dashboard embed-option parsing (`app/share/dashboard/[token]/page.tsx`) → E2E only → add Jest characterization test before changing it

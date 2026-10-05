@@ -5,14 +5,14 @@ I've inventoried the charts area. All paths below are relative to `/Users/himans
 ## 0. Findings that affect how you write the tests
 
 1. **Some chart components are never used by the app.** These are only imported by tests or by other unused files:
-   - `components/charts/ChartBuilder.tsx`
+   - `components/charts/ChartBuilder.tsx` (deleted in R0)
    - `ChartFiltersConfiguration.tsx`, `ChartSortConfiguration.tsx`, `ChartPaginationConfiguration.tsx`
-   - `TableConfiguration.tsx`, `SimpleTableConfiguration.tsx` (imported by `ChartDataConfigurationV3` but never rendered)
+   - `TableConfiguration.tsx`, `SimpleTableConfiguration.tsx` (imported by `ChartDataConfiguration` but never rendered)
    - `ChartExport.tsx`, `MiniChart.tsx`, `WorkInProgress.tsx`
    - `map/LayerConfiguration.tsx`, `map/MultiSelectLayerCard.tsx`
-   - `types/map/MapChartCustomizations.tsx` (the pages render `map/MapCustomizations.tsx` for maps instead)
-   - `types/table/ColumnAlignmentSection.tsx`, `ColumnOrderSection.tsx` (replaced by `ColumnSettingsSection`)
-   - `StaticChartPreview.tsx` is only used by `components/dashboard/chart-selector-modal.tsx`.
+   - `types/map/MapChartCustomizations.tsx` (deleted in R0; the pages render `map/MapCustomizations.tsx` for maps instead)
+   - `types/table/ColumnAlignmentSection.tsx` (deleted in R0), `ColumnOrderSection.tsx` (replaced by `ColumnSettingsSection`)
+   - `StaticChartPreview.tsx` is only used by `components/dashboard/widgets/chart/chart-selector-modal.tsx`.
 2. **The builder is written out twice.** `app/charts/new/configure/page.tsx` (create) and `app/charts/[id]/edit/page.tsx` (edit) each have their own copy of `getDefaultCustomizations`, `isChartDataReady`, `isFormValid`, the payload builder and the table drill-down handlers, and the copies differ (details in §5). Test create and edit as separate flows.
 3. **There is no standalone public or shared chart page.** Public routes are `app/share/dashboard/[token]`, `app/share/report/[token]` and `app/public/dashboard/[token]`. Charts only appear there inside dashboards. The one public-mode path in charts code is `ChartExportDropdown`'s `isPublicMode` CSV branch.
 4. **The list page filters and sorts on the client, one page at a time.** `useCharts` sends only `page` and `page_size`. The backend accepts `search` and `chart_type`, but the UI never sends them. So name/type/source/date filters and column sort only act on the 10–100 rows of the current page, while the "x–y of N" counter shows the server total.
@@ -52,9 +52,9 @@ I've inventoried the charts area. All paths below are relative to `/Users/himans
 | Title link | L902–907 | none | – | Goes to `/charts/{id}`, or `#` without `CAN_VIEW_CHARTS`. Tooltip shows the full title |
 | Created by | L949–968 | `chart-created-by-{id}` | – | Falls back to "Unknown" |
 | Last modified | L971–975 | none | – | `formatDistanceToNow` |
-| Type icon and tooltip | L928–946 | none | – | Colours from `constants/chart-types.ts` |
+| Type icon and tooltip | L928–946 | none | – | Colours from `components/charts/chart-types/registry.ts` (R1a; the duplicate `ChartType` export was deleted) |
 | Edit icon | L980–986 | none | – | Only when `access_level==='edit'`. Goes to `/charts/{id}/edit` |
-| Share icon and ShareModal | L987–996, L1543–1551 | inside the modal: `share-modal`, `share-submit-btn`, `share-close-btn`, `copy-link-btn`, `general-access-select`, … | `/api/access/chart/{id}/grants`, `/candidates`, `/general-access` (PATCH), `/transfer-ownership`, `/request-access` | Only when `access_level==='edit'`. Modal is `components/ui/share-modal.tsx` with `rtype="chart"` |
+| Share icon and ShareModal | L987–996, L1543–1551 | inside the modal: `share-modal`, `share-submit-btn`, `share-close-btn`, `copy-link-btn`, `general-access-select`, … | `/api/access/chart/{id}/grants`, `/candidates`, `/general-access` (PATCH), `/transfer-ownership`, `/request-access` | Only when `access_level==='edit'`. Modal is `components/share/ShareModal.tsx` with `rtype="chart"` |
 | Row menu (⋮) → Select/Deselect | L997–1012 | none | – | Enters selection mode with this row selected |
 | Row menu → Duplicate | L402–470, L1013–1029 | none | `POST /api/charts/` | Needs `CAN_CREATE_CHARTS`. Title becomes "Copy of X", then "Copy of X (2)", … (`generateDuplicateTitle` L366). Titles are only checked against the current page. Copies `extra_config` as is. Shows a spinner while running |
 | Row menu → Export (submenu) | `ChartExportDropdownForList.tsx` | none | see §10 | Needs `CAN_VIEW_CHARTS` |
@@ -84,11 +84,11 @@ I've inventoried the charts area. All paths below are relative to `/Users/himans
 | Feature | Where | Test ids | API | Notes |
 |---|---|---|---|---|
 | Initial state | L182–191 | – | – | Title defaults to "Bar chart - {table} {timestamp}" etc. Table and pivot get the generic "Chart - …" (L137–155). Defaults: `aggregate_function:'count'`, per-type customizations from `getDefaultCustomizations` (L70) |
-| Auto-prefill | L669–689, plus again inside `ChartDataConfigurationV3` L298 | – | `GET /api/warehouse/table_columns/{schema}/{table}` | `generateAutoPrefilledConfig` (`lib/chartAutoPrefill.ts:33`) |
+| Auto-prefill | L669–689, plus again inside `ChartDataConfiguration` L298 | – | `GET /api/warehouse/table_columns/{schema}/{table}` | `generateAutoPrefilledConfig` (`lib/chartAutoPrefill.ts:33`) |
 | Back | L1188–1205 | `chart-create-back-button` | – | Label is "Back to Dashboard" when from a dashboard. With unsaved changes, opens the unsaved dialog; otherwise goes to `/charts/new` |
 | Chart name input | L1208–1221 | `#chart-name` (no test id) | – | Includes the `DashboardNameHint` popover |
 | Save Chart | L1009–1149, L1225–1233 | `chart-edit-save-button` (same test id as the edit page) | `POST /api/charts/` | Disabled while `!isFormValid()` or while saving ("Saving..."). Success toast "Chart created", then goes to `/charts/{id}`, or replaces history with `?from=dashboard`. Error goes through `toastError.api(error,'save chart')` |
-| Left tabs: Data Configuration / Chart Styling | L1243–1317 | `chart-config-tabs`, `chart-data-config-tab`, `chart-styling-tab` | – | Map uses `MapDataConfigurationV3` and `MapCustomizations`; everything else uses `ChartDataConfigurationV3` and `ChartCustomizations` |
+| Left tabs: Data Configuration / Chart Styling | L1243–1317 | `chart-config-tabs`, `chart-data-config-tab`, `chart-styling-tab` | – | Map uses `MapDataConfiguration` and `MapCustomizations`; everything else uses `ChartDataConfiguration` and `ChartCustomizations` |
 | Right tabs: CHART / DATA | L1322–1334 | none | – | – |
 | CHART tab preview | L1336–1455 | see §9 | see §9 | Map: `MapPreview`. Table: `TableChart` with breadcrumb. Others: `ChartPreview` |
 | DATA tab: Chart Data / Raw Data | L1459–1530 | none | `POST /api/charts/chart-data-preview/?page=&limit=`, `POST …/total-rows/`, `GET /api/warehouse/table_data/{s}/{t}?page=&limit=`, `GET /api/warehouse/table_count/{s}/{t}` | Table and pivot open on Raw Data by default. Pivot's Chart Data sub-tab shows the pivot itself |
@@ -133,7 +133,7 @@ Ways create and edit differ, each worth a paired test:
 
 ---
 
-## 6. Shared data configuration (`components/charts/ChartDataConfigurationV3.tsx`)
+## 6. Shared data configuration (`components/charts/ChartDataConfiguration.tsx`)
 
 | Control | Where | Shown for | Test ids | API | Notes |
 |---|---|---|---|---|---|
@@ -173,7 +173,7 @@ Ways create and edit differ, each worth a paired test:
 
 ## 8. Per chart type
 
-### 8.1 Bar (`types/bar/BarChartCustomizations.tsx`)
+### 8.1 Bar (`chart-types/echarts/BarChartCustomizations.tsx`)
 
 - **Data:** X axis, time grain, metrics (several), extra dimension (stacked or grouped), filters, pagination, sort.
 - **Save needs:** a dimension and valid metrics.
@@ -181,7 +181,7 @@ Ways create and edit differ, each worth a paired test:
 | Styling option | Line | Element id | Condition |
 |---|---|---|---|
 | Orientation: Vertical / Horizontal | 42–57 | radios `#vertical`, `#horizontal` | – |
-| Stacked Bars | 59–69 | `#stacked` | Only with an extra dimension. Stacked totals come from `lib/stacked-bar-utils.ts` |
+| Stacked Bars | 59–69 | `#stacked` | Only with an extra dimension. Stacked totals come from `components/charts/chart-types/echarts/stacked-bar.ts` |
 | Show Tooltip on Hover | 71–79 | `#showTooltip` | – |
 | Show Legend | 81–89 | `#showLegend` | – |
 | Legend Display: Paginated / Show All | 94–115 | `#bar-paginated`, `#bar-all` | Legend on. Two back-to-back updates here means the default `legendPosition` may be lost |
@@ -195,7 +195,7 @@ Ways create and edit differ, each worth a paired test:
 | Y-Axis Title and Rotation | 234–261 | `#yAxisTitle`, `#yAxisLabelRotation` | – |
 | Y Number Format and Decimals | 263–272 | test ids `yAxisNumberFormat`, `yAxisDecimalPlaces` | Always. Applies to axis, labels and tooltip |
 
-### 8.2 Line (`types/line/LineChartCustomizations.tsx`)
+### 8.2 Line (`chart-types/echarts/LineChartCustomizations.tsx`)
 
 - **Data:** same as bar (the extra dimension makes it multi-line).
 
@@ -207,7 +207,7 @@ Ways create and edit differ, each worth a paired test:
 | Data Labels and Position: Above/Below/Left/Right | 139–168 | `#showDataLabels`, `#dataLabelPosition` | – |
 | X/Y axis title, rotation, number and date format | 172–270 | same as bar | – |
 
-### 8.3 Pie (`types/pie/PieChartCustomizations.tsx`)
+### 8.3 Pie (`chart-types/echarts/PieChartCustomizations.tsx`)
 
 - **Data:** dimension, one metric, extra dimension, filters, pagination, sort.
 
@@ -223,7 +223,7 @@ Ways create and edit differ, each worth a paired test:
 | Number Format and Decimals | 217–224 | test ids `pieNumberFormat`, `pieDecimalPlaces` | – |
 | Date Formatting | 228–244 | `#pieDateFormat` | When the dimension or extra dimension is a date; shows the column name |
 
-### 8.4 Number / KPI (`types/number/NumberChartCustomizations.tsx`)
+### 8.4 Number / KPI (`chart-types/echarts/NumberChartCustomizations.tsx`)
 
 - **Data:** one metric only. No filters are hidden, but pagination and sort are hidden. The display name field is hidden.
 - **Save needs:** a valid metric.
@@ -237,7 +237,7 @@ Ways create and edit differ, each worth a paired test:
 
 Number, pie and map formatting keys (`numberFormat`, `decimalPlaces`, `dateFormat`) are removed from the API payload by `getApiCustomizations` (`lib/chart-payload-utils.ts:35`) and applied in the browser (`applyNumberChartFormatting`).
 
-### 8.5 Map (`map/MapDataConfigurationV3.tsx`, `map/DynamicLevelConfig.tsx`, `map/MapCustomizations.tsx`, `map/MapPreview.tsx`)
+### 8.5 Map (`map/MapDataConfiguration.tsx`, `map/DynamicLevelConfig.tsx`, `map/MapCustomizations.tsx`, `map/MapPreview.tsx`)
 
 | Feature | Where | Test ids | API | Notes |
 |---|---|---|---|---|
@@ -263,7 +263,7 @@ Number, pie and map formatting keys (`numberFormat`, `decimalPlaces`, `dateForma
 
 Map save requires a geographic column, a GeoJSON id and a valid metric. The edit page turns simplified district/ward/subward fields into `layers` (L1288).
 
-### 8.6 Table (`TableDimensionsSelector.tsx`, `types/table/*`, `TableChart.tsx`)
+### 8.6 Table (`components/charts/chart-types/table/*`)
 
 | Feature | Where | Test ids | Notes |
 |---|---|---|---|
@@ -368,7 +368,7 @@ Map save requires a geographic column, a GeoJSON id and a valid metric. The edit
 - List: `toastSuccess.exported` / `toastError.export`.
 
 **Edge cases:**
-- The pivot CSV always writes "Subtotal" and "Grand Total", ignoring custom labels (`pivot-table/utils.ts:306,329`).
+- The pivot CSV always writes "Subtotal" and "Grand Total", ignoring custom labels (`chart-types/pivot-table/utils.ts:306,329`).
 - The list page has no PNG option for table or pivot charts.
 
 ---
@@ -427,12 +427,12 @@ For Playwright `route()` mocks: chart-data and map-overlay requests are POSTs wh
 There's no single registry despite what `.claude/rules/charts.md` says. Type lists are defined separately in each of these places:
 
 - `types/charts.ts:1` — `ChartTypes` enum (bar, line, pie, table, number, map, pivot_table)
-- `constants/chart-types.ts` — colours per type
+- `components/charts/chart-types/registry.ts` (R1a; the duplicate `ChartType` export was deleted) — colours per type
 - `app/charts/new/page.tsx:27` — cards with names and descriptions ("Number")
 - `components/charts/ChartTypeSelector.tsx:15` — a second list ("Big Number", different order)
 - `app/charts/page.tsx:83` — `chartIcons` (has no pivot entry, so it falls back to BarChart2)
 - `ChartCustomizations.tsx:280` — switch statement choosing each type's styling panel
-- `lib/chart-formatting-utils.ts:526` — `DATA_LABEL_POSITIONS`
+- `components/charts/chart-types/echarts/formatting.ts:526` — `DATA_LABEL_POSITIONS`
 - `lib/chart-size-constraints.ts:45` — `CHART_SIZE_CONSTRAINTS` (dashboard sizing)
 
 ---
@@ -443,13 +443,13 @@ There's no single registry despite what `.claude/rules/charts.md` says. Type lis
 |---|---|---|
 | `generateAutoPrefilledConfig` | `lib/chartAutoPrefill.ts:33` | yes (`lib/__tests__/chartAutoPrefill.test.ts`) |
 | `mergeTableColumnFormatting`, `getApiCustomizations`, `resolveTableColumnOrder` | `lib/chart-payload-utils.ts:11,35,77` | yes (`__tests__/lib/chart-payload-utils.test.ts`) |
-| `formatAxisValue`, `createTooltipFormatter`, `createPieDimensionFormatter`, `applyNumberChartFormatting`, `applyPieChartFormatting`, `applyLineBarChartFormatting`, `createPieDateFormatter`, `applyPieDateFormatting`, `applyLineBarDateFormatting`, `sanitizeCustomizationsForChartType` | `lib/chart-formatting-utils.ts:43–543` | yes (partial) |
-| `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` | `lib/chart-legend-utils.ts:31–222` | **no** |
-| `createStackedTotalFormatter`, `applyStackedBarLabels` | `lib/stacked-bar-utils.ts:21,53` | yes |
+| `formatAxisValue`, `createTooltipFormatter`, `createPieDimensionFormatter`, `applyNumberChartFormatting`, `applyPieChartFormatting`, `applyLineBarChartFormatting`, `createPieDateFormatter`, `applyPieDateFormatting`, `applyLineBarDateFormatting`, `sanitizeCustomizationsForChartType` | `components/charts/chart-types/echarts/formatting.ts:43–543` | yes (partial) |
+| `getLegendConfig`, `getPieSeriesPosition`, `applyLegendPosition`, `extractLegendPosition`, `isLegendPaginated` | `components/charts/chart-types/echarts/legend.ts:31–222` | **no** |
+| `createStackedTotalFormatter`, `applyStackedBarLabels` | `components/charts/chart-types/echarts/stacked-bar.ts:21,53` | yes |
 | `resolveDrillDownGeoJSON` | `lib/map-drilldown-utils.ts:23` | yes |
 | `transformMapDataOverlayPayload` (and the private `buildSimple…` / `buildCalculated…` helpers) | `hooks/api/useChart.ts:413–466` | **no** |
-| `applyPivotDateFormat`, `resolvePivotTotals`, `buildPivotDataFields`, `buildPivotExtraConfig`, `getPivotRenderProps`, `computePivotDateFormats`, `pruneStaleFormatting`, `calculateRowSpans`, `exportPivotAsCsv` | `components/charts/pivot-table/utils.ts` | partial (`date-formats.test.ts`); CSV, row spans and prune untested |
-| `cellsToGrid` | `pivot-table/cellsToGrid.ts:92` | yes |
+| `applyPivotDateFormat`, `resolvePivotTotals`, `buildPivotDataFields`, `buildPivotExtraConfig`, `getPivotRenderProps`, `computePivotDateFormats`, `pruneStaleFormatting`, `calculateRowSpans`, `exportPivotAsCsv` | `components/charts/chart-types/pivot-table/utils.ts` | partial (`date-formats.test.ts`); CSV, row spans and prune untested |
+| `cellsToGrid` | `chart-types/pivot-table/cellsToGrid.ts:92` | yes |
 | `computeHeaderSpans`, and the inline `formatCell` / `getConditionalColor` | `PivotTableChart.tsx:55,156,180` | no (would need extracting first) |
 | `getMetricAnalyticsProps`, `isDrillDownEnabled`, `getUsedSavedMetricIds`, `getNewlyUsedSavedMetricIds` | `components/charts/utils.ts:47–96` | **no** |
 | `getAvailableColumns` (exported) | `MetricsSelector.tsx:52` | via component tests |
@@ -464,7 +464,7 @@ There's no single registry despite what `.claude/rules/charts.md` says. Type lis
 | `ChartExporter.*`, `generateFilename` | `lib/chart-export.ts` | yes (`__tests__/lib/chart-export.test.ts`) |
 | `getDefaultCustomizations` (two differing copies), `generateDefaultChartName`, `isChartDataReady`, `isFormValid`, the `chartDataPayload` memo | `configure/page.tsx:70,137,293,922,396`; `edit/page.tsx:77,450,1197,539` | **no.** Extract these before the refactor; they're the main candidates |
 | `convertLayersToSimplified`, `convertSimplifiedToLayers`, `buildChartData`, chart-type switch in `handleFormChange` | `edit/page.tsx:229,1288,1329,953` | **no** |
-| `handleChartTypeChange`, `handleDatasetChange` | `ChartDataConfigurationV3.tsx:376,253` | via component test |
+| `handleChartTypeChange`, `handleDatasetChange` | `ChartDataConfiguration.tsx:376,253` | via component test |
 | Table drill-down click and drill-up reducer (three copies) | configure L780/L837, edit L1101/L1159, detail L250/L310 | **no** |
 | Map region-click resolver | `ChartDetailClient.tsx:530` | no |
 | `getRegionTypeHierarchy`, `updateLevel` | `map/DynamicLevelConfig.tsx:108,177` | via component test |
@@ -489,14 +489,14 @@ There's no single registry despite what `.claude/rules/charts.md` says. Type lis
 - **Edit:** title input, both tab lists, error overlay, SaveOptionsDialog buttons (UPDATE EXISTING, SAVE AS NEW, back arrow, BACK, CREATE NEW CHART; the input only has `#new-title`), ConfirmationDialog buttons.
 - **Detail:** Export trigger and PNG/PDF/CSV items (`ChartExportDropdown.tsx:200–266`), table drill "← Back".
 - **ChartTypeSelector:** all 7 buttons (`title` attribute only).
-- **ChartDataConfigurationV3:**
+- **ChartDataConfiguration:**
   - Dataset, X axis, extra dimension, filter column, filter value and sort comboboxes (all get auto-generated ids)
   - Operator select (L808), date picker, "+ Add Filter" (L861), pagination select (L918), sort direction select (L1060)
   - TimeGrainSelector select
 - **MetricAccordionItem:** Simple/Calculated/Saved tabs (L308–316), Column combobox, "Add metric to library" toggle (L433), Metric Name input (L447), ADD METRIC TO LIBRARY (L455).
 - **TableDimensionsSelector:** drag handles, dimension comboboxes, remove X, ADD DIMENSION(s), drill switch (`#drill-down-toggle`), "Remove anyway" / "Cancel", drill-off confirmation.
 - **PivotDimensionList and PivotDataConfiguration:** drag handles, info tooltip buttons.
-- **MapDataConfigurationV3:** all filter controls including remove ✕ and Add Filter.
+- **MapDataConfiguration:** all filter controls including remove ✕ and Add Filter.
 - **DynamicLevelConfig:** Country select, State column combobox, District combobox, Download States/Districts buttons.
 - **Styling panels:** every radio, switch, select and input in Bar, Line, Pie and Number customizations (they have element ids only). MapCustomizations controls have neither ids nor test ids. Only `NumberFormatSection` provides test ids. `DateFormatSection` triggers have ids only.
 - **TableChart and DataPreview:** first/prev/next/last page buttons (sr-only text), page-size selects, "Link" anchors, drill-down cells.

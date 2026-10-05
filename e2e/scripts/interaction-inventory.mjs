@@ -36,9 +36,10 @@ const SCAN_DIRS = [
   'components/dashboards',
   'components/reports',
   'components/access',
+  'components/share', // R5d: the share modal moved here from components/ui/
+  'components/list-page', // R3a: list kit shared by the three list pages
 ];
 const SCAN_FILES = [
-  'components/ui/share-modal.tsx',
   'components/ui/confirmation-dialog.tsx',
   'components/ui/date-picker.tsx',
   'components/ui/combobox.tsx',
@@ -46,30 +47,10 @@ const SCAN_FILES = [
 ];
 
 /**
- * Files the coverage docs call dead / never rendered:
- * charts.md §0 point 1, dashboards.md §14 "Unused files and code", reports.md §5 "Dead or unused code".
+ * Files the coverage docs called dead / never rendered. R0 deleted every one of them, so the set is
+ * empty; kept so areaOf/report code paths that read it keep working.
  */
-export const DEAD_FILES = new Set([
-  'components/charts/ChartBuilder.tsx',
-  'components/charts/ChartFiltersConfiguration.tsx',
-  'components/charts/ChartSortConfiguration.tsx',
-  'components/charts/ChartPaginationConfiguration.tsx',
-  'components/charts/TableConfiguration.tsx',
-  'components/charts/SimpleTableConfiguration.tsx',
-  'components/charts/ChartExport.tsx',
-  'components/charts/MiniChart.tsx',
-  'components/charts/WorkInProgress.tsx',
-  'components/charts/map/LayerConfiguration.tsx',
-  'components/charts/map/MultiSelectLayerCard.tsx',
-  'components/charts/types/map/MapChartCustomizations.tsx',
-  'components/charts/types/table/ColumnAlignmentSection.tsx',
-  'components/charts/types/table/ColumnOrderSection.tsx',
-  'components/dashboard/DashboardMiniPreview.tsx',
-  'components/dashboard/GridGuides.tsx',
-  'components/dashboard/SpaceMakingIndicators.tsx',
-  'components/dashboard/SnapIndicators.tsx',
-  'components/reports/report-share-menu.tsx',
-]);
+export const DEAD_FILES = new Set([]);
 
 const INTERACTIVE_TAGS = new Set([
   'button',
@@ -364,6 +345,8 @@ export function areaOf(file) {
   if (file.startsWith('components/access/')) return 'access';
   if (file.startsWith('components/kpis/')) return 'kpis';
   if (file.startsWith('components/ui/')) return 'ui (shared)';
+  if (file.startsWith('components/share/')) return 'ui (shared)'; // same bucket the share modal had in components/ui/
+  if (file.startsWith('components/list-page/')) return 'list kit (shared)';
   return 'other';
 }
 

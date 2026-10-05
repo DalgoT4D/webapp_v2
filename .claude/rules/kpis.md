@@ -9,7 +9,7 @@ paths:
 
 # KPIs — Domain Map
 
-KPIs are target-tracked metrics with RAG (red/amber/green) status. **They are embedded into dashboards** (`rules/dashboards.md`) via `components/dashboard/kpi-chart-element.tsx` and built on **metrics** (`rules/metrics.md`).
+KPIs are target-tracked metrics with RAG (red/amber/green) status. **They are embedded into dashboards** (`rules/dashboards.md`) via `components/dashboard/widgets/kpi/kpi-chart-element.tsx` and built on **metrics** (`rules/metrics.md`).
 
 ## Where things live
 
@@ -19,7 +19,7 @@ KPIs are target-tracked metrics with RAG (red/amber/green) status. **They are em
 | Card / form / detail / delete | `components/kpis/{kpi-card,kpi-form,kpi-detail-drawer,kpi-delete-dialog}.tsx` |
 | Hook | `hooks/api/useKPIs.ts` (`useKPIs`, `useKPIData`, `useAnnotations` + create/update/delete fns) |
 | Types & constants | `types/kpis.ts` (`RAG_COLORS`, `DIRECTION_OPTIONS`, `TIME_GRAIN_OPTIONS`, `METRIC_TYPE_TAG_OPTIONS`) |
-| Dashboard embedding | `components/dashboard/kpi-chart-element.tsx`, `kpi-selector-modal.tsx` |
+| Dashboard embedding | `components/dashboard/widgets/kpi/kpi-chart-element.tsx`, `kpi-selector-modal.tsx` |
 | Backend | `DDP_backend/ddpui/api/kpi_api.py`, `core/kpi/kpi_service.py`, `schemas/kpi_schema.py` |
 
 ## Data flow

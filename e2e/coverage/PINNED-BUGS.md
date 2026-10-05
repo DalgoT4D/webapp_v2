@@ -46,7 +46,7 @@ Severity: 🔴 user-visible broken feature · 🟠 wrong data/behavior · 🟡 c
 | 🟠 | Edit round-trip of UI-created drill map saves a single layer; re-picking district converts to 2 | builder-map |
 | 🟠 | Table with dimension but no metric shows raw rows (156) instead of grouped (6) | builder-table |
 | 🟠 | Table last drill level renders clickable but click does nothing | builder-table |
-| 🟠 | **Bar/line detail page rounds fractional Y-axis labels to integers** — saved `yAxisDecimalPlaces: null` passes a `!== undefined` check → `toFixed(null)` (builder shows 0.1…0.6, detail shows 1,1,0,0) | `lib/chart-formatting-utils.ts` ~318 `applyLineBarChartFormatting` · metrics-matrix-a MM-bar-2 / MM-line-2 / MM-line-3 |
+| 🟠 | **Bar/line detail page rounds fractional Y-axis labels to integers** — saved `yAxisDecimalPlaces: null` passes a `!== undefined` check → `toFixed(null)` (builder shows 0.1…0.6, detail shows 1,1,0,0) | `components/charts/chart-types/echarts/formatting.ts` ~318 `applyLineBarChartFormatting` · metrics-matrix-a MM-bar-2 / MM-line-2 / MM-line-3 |
 | 🟠 | Pivot shows calculated ratios with 0 decimals by default (0.49 → "0"); table shows full precision for same metric | `PivotTableChart.tsx` `formatCell` · metrics-matrix-b MM-pivot-2 |
 | 🟡 | Number chart defaults `decimalPlaces: 0` → ratio 0.503 renders "1" | `configure/page.tsx:114` · metrics-matrix-a MM-number-2/3 |
 | 🟡 | Table/pivot data requests always send `aggregate_func: "count"` regardless of metrics; table save `table_columns` is a stale raw-column list; map overlay sends metric alias as `"value"`, saved `value_column` null for calculated/saved | metrics-matrix-b baselines |
@@ -56,7 +56,7 @@ Severity: 🔴 user-visible broken feature · 🟠 wrong data/behavior · 🟡 c
 | 🟡 | Number chart "Chart Data" sub-tab says "Data preview isn't ready yet…" | builder-shared C-B5 |
 | 🟡 | Map region click in create builder without drill level → info toast; edit builder → nothing | builder-map |
 | 🟡 | Radix select can't re-pick an already-default value (legend corner, Blues) | builder-map |
-| 🟠 | **Stacked bar total labels render blank** — backend returns bar values as strings, `stacked-bar-utils` counts non-numbers as 0 | `lib/stacked-bar-utils.ts` · gaps-builder |
+| 🟠 | **Stacked bar total labels render blank** — backend returns bar values as strings, `stacked-bar-utils` counts non-numbers as 0 | `components/charts/chart-types/echarts/stacked-bar.ts` · gaps-builder |
 | 🟠 | **Charts can't be made Public** — backend sends `supports_public=false` (no Public option in share modal) | gaps-edit-detail |
 | 🟠 | Browser "leave page?" (beforeunload) fires with no user edits (auto-prefill = dirty) | gaps-builder |
 | 🟠 | Edit bar → table resets dimension to first text column (`id`) instead of keeping X axis | edit page `handleFormChange` · gaps-builder |
@@ -127,4 +127,4 @@ Severity: 🔴 user-visible broken feature · 🟠 wrong data/behavior · 🟡 c
 
 ## Unreachable UI (dead-code candidates for the refactor)
 
-31 interactive elements can't be reached in the app today (dead branches, props never passed, hard-coded values) — full list with file:line in [INTERACTIONS.md](INTERACTIONS.md) → "Untouched". Highlights: chart Y-axis selector (`ChartDataConfigurationV3.tsx:636`), table header sort (`onSort` never passed), table dimension-remove / drill-off confirmations (props never passed), dashboard list card + list view modes (`viewMode` hard-coded), dashboard filter date-picker footer buttons, share-modal legacy email section (`onShareViaEmail` never passed), map country select (hard-coded disabled), mobile "Edit Dashboard" (renders only at ≥1200px inside a header hidden at ≥1024px).
+31 interactive elements can't be reached in the app today (dead branches, props never passed, hard-coded values) — full list with file:line in [INTERACTIONS.md](INTERACTIONS.md) → "Untouched". Highlights: chart Y-axis selector (`ChartDataConfiguration.tsx:636`), table header sort (`onSort` never passed), table dimension-remove / drill-off confirmations (props never passed), dashboard list card + list view modes (`viewMode` hard-coded), dashboard filter date-picker footer buttons, share-modal legacy email section (`onShareViaEmail` never passed), map country select (hard-coded disabled), mobile "Edit Dashboard" (renders only at ≥1200px inside a header hidden at ≥1024px).

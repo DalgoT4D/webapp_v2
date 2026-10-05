@@ -8,8 +8,8 @@ This was a read-only review. All paths are relative to ``.
 
 | Short name | Absolute path |
 |---|---|
-| list | `components/dashboard/dashboard-list-v2.tsx` |
-| builder | `components/dashboard/dashboard-builder-v2.tsx` |
+| list | `components/dashboard/dashboard-list.tsx` |
+| builder | `components/dashboard/dashboard-builder.tsx` |
 | cell | `components/dashboard/DashboardCell.tsx` |
 | view | `components/dashboard/dashboard-native-view.tsx` |
 | actions | `components/dashboard/responsive-dashboard-actions.tsx` |
@@ -23,20 +23,20 @@ This was a read-only review. All paths are relative to ``.
 | deltab | `components/dashboard/tabs/DeleteTabDialog.tsx` |
 | tabutils | `components/dashboard/tabs/tab-utils.ts` |
 | xtab | `components/dashboard/tabs/cross-tab-drag.ts` |
-| cev2 | `components/dashboard/chart-element-v2.tsx` (builder chart) |
-| cev | `components/dashboard/chart-element-view.tsx` (view chart) |
-| cte | `components/dashboard/chart-title-editor.tsx` |
-| csm / ksm | `components/dashboard/chart-selector-modal.tsx`, `components/dashboard/kpi-selector-modal.tsx` |
-| kpi | `components/dashboard/kpi-chart-element.tsx` |
-| text / rtt / img | `components/dashboard/text-element-unified.tsx`, `components/dashboard/rich-text-toolbar.tsx`, `components/dashboard/dashboard-image-control.tsx` |
+| cev2 | `components/dashboard/widgets/chart/chart-element-builder.tsx` (builder chart) |
+| cev | `components/dashboard/widgets/chart/chart-element-view.tsx` (view chart) |
+| cte | `components/dashboard/widgets/chart/chart-title-editor.tsx` |
+| csm / ksm | `components/dashboard/widgets/chart/chart-selector-modal.tsx`, `components/dashboard/widgets/kpi/kpi-selector-modal.tsx` |
+| kpi | `components/dashboard/widgets/kpi/kpi-chart-element.tsx` |
+| text / rtt / img | `components/dashboard/widgets/text/text-element-unified.tsx`, `components/dashboard/widgets/text/rich-text-toolbar.tsx`, `components/dashboard/widgets/text/dashboard-image-control.tsx` |
 | embed | `components/dashboard/embed-code-dropdown.tsx` |
-| ssv / sse | `components/dashboard/individual-dashboard-view.tsx`, `components/dashboard/superset-embed.tsx` |
+| ssv / sse | `components/dashboard/superset-dashboard-view.tsx`, `components/dashboard/superset-embed.tsx` |
 | usage | `components/dashboards/usage-dashboard.tsx` |
 | pages | `app/dashboards/{page,create/page,[id]/page,[id]/edit/page,usage/page}.tsx` |
 | pub | `app/share/dashboard/[token]/PublicDashboardView.tsx` (+ `page.tsx`) |
 | legacy pub | `app/public/dashboard/[token]/page.tsx` |
 | hooks | `hooks/api/useDashboards.ts` |
-| share | `components/ui/share-modal.tsx`, with endpoints in `hooks/api/useAccess.ts` |
+| share | `components/share/ShareModal.tsx`, with endpoints in `hooks/api/useAccess.ts` |
 
 ## What this means for the test plan
 
@@ -267,7 +267,7 @@ Probable bugs to pin down with characterization tests:
 | `generateEmbedCode` (URL and iframe format) | embed:35 | No. |
 | Value selection reducer `handleSelectionChange` (unused), numerical clamp `handleInputChange`, datetime `handleDateChange` null collapse | widgets:113, 317; dtw:34 | Partially (`dashboard-filter-widgets.test.tsx`). |
 | Filter-type auto-detect, auto-name, save-settings builder | fcm:232-270, 281-346 | No. |
-| `legacyConfigToRichText`, `sanitizeRichTextDocument`, `richTextDocumentsEqual` | `components/dashboard/rich-text-config.ts:61,109,183` | Yes. |
+| `legacyConfigToRichText`, `sanitizeRichTextDocument`, `richTextDocumentsEqual` | `components/dashboard/widgets/text/rich-text-config.ts:61,109,183` | Yes. |
 | `resolveChartTitle`, `isTitleOverridden`, `getTitleEditorValue`, `createTitleUpdateConfig` | `lib/chart-title-utils.ts` | Yes (`__tests__/lib/chart-title-utils.test.ts`). |
 | `getMinGridDimensions`, `getDefaultGridDimensions`, `calculateTextDimensions`, `getChartTypeFromConfig` | `lib/chart-size-constraints.ts` | Yes (`__tests__/lib/chart-size-constraints.test.ts`). |
 | `useUndoRedo` (dedupe by JSON, max history, `setStateWithoutHistory`) | `hooks/useUndoRedo.ts` | No. |
@@ -352,16 +352,18 @@ Probable bugs to pin down with characterization tests:
 
 ## 13. Existing unit tests in this area (for reference)
 
-- `components/dashboard/__tests__/`: `dashboard-cell-navigation`, `dashboard-filter-widgets`, `kpi-chart-element-navigation`, `responsive-dashboard-actions`, `rich-text-config`, `text-element-unified`
+- `components/dashboard/__tests__/`: `dashboard-cell-navigation`, `dashboard-filter-widgets`, `responsive-dashboard-actions`
+- `components/dashboard/widgets/kpi/__tests__/kpi-chart-element-navigation.test.tsx`
+- `components/dashboard/widgets/text/__tests__/`: `rich-text-config`, `text-element-unified`
 - `components/dashboard/tabs/__tests__/`: `cross-tab-drag`, `DeleteTabDialog`, `tab-utils`, `TabBar`
 - `app/dashboards/create/__tests__/page.test.tsx`
 - `app/share/dashboard/[token]/__tests__/PublicDashboardView.test.tsx`
-- `hooks/api/__tests__/useDashboards.share.test.ts`
+- `hooks/api/__tests__/useDashboards.share.test.ts` (deleted in R0)
 - `lib/__tests__/dashboard-animation-utils.test.ts`, `lib/__tests__/dashboard-filter-analytics.test.ts`, `lib/__tests__/widget-navigation.test.ts`
 
 For Playwright, the only existing setup is `e2e/login.spec.ts` and `e2e/helpers/auth.ts`, with `baseURL` at `http://localhost:3001` (`playwright.config.ts`).
 
 ## 14. Unused files and code
 
-- **Files nothing imports:** `components/dashboard/DashboardMiniPreview.tsx`, `GridGuides.tsx` and `SpaceMakingIndicators.tsx`. `SnapIndicators` is referenced only by `hooks/useDashboardAnimation.ts`.
+- **Files nothing imports:** `components/dashboard/DashboardMiniPreview.tsx` (deleted in R0), `GridGuides.tsx` and `SpaceMakingIndicators.tsx`. `SnapIndicators` is referenced only by `hooks/useDashboardAnimation.ts`.
 - **Dead exports:** `updateDashboardSharing`, `getDashboardSharingStatus`, `getFilterOptions` (which calls `GET /api/dashboards/filter-options/`), plus the module-level `lockDashboard` and `unlockDashboard` in hooks. The builder uses its own inline versions instead.

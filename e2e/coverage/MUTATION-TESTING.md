@@ -55,3 +55,9 @@
 
 Runner + catalog: `e2e/scripts/mutation/mutate.py` + `mutations.json`. Re-run after the refactor (stop other runs first; it rebuilds and restarts the :3000 server):
 `python3 e2e/scripts/mutation/mutate.py M01 M02 …` (add `TARGETED_ONLY=1` to skip the whole-area fallback).
+`TARGETED` lists the catching spec for every mutation (R6c); the whole-area fallback still runs on a miss.
+
+## Re-run after the refactor (R6c)
+
+| id | area | bug | caught by |
+|---|---|---|---|
