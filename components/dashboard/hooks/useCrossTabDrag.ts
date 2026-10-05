@@ -19,7 +19,6 @@ import {
 } from '@/components/dashboard/grid/grid-constants';
 import {
   getHandoffPlaceholderStyle,
-  isPointInsideRect,
   moveWidgetBetweenTabs,
   pointerToGridPosition,
 } from '@/components/dashboard/tabs/cross-tab-drag';
@@ -29,6 +28,7 @@ import {
   type EditorSetState,
 } from '@/components/dashboard/logic/editor-state';
 import { useCanvasAutoscroll } from '@/components/dashboard/hooks/useCanvasAutoscroll';
+import { useHandoffPointerListeners } from '@/components/dashboard/hooks/useHandoffPointerListeners';
 
 /** Hovering a tab this long while dragging a widget hands the widget over to that tab. */
 export const CROSS_TAB_HOVER_DELAY_MS = 500;
@@ -224,75 +224,15 @@ export function useCrossTabDrag({
   );
 
   // Once the source grid unmounts, keep the gesture alive at document level.
-  useEffect(() => {
-    if (crossTabDrag?.phase !== 'handoff') return undefined;
-
-    const initialPositionFrame = requestAnimationFrame(() => {
-      const session = crossTabDragRef.current;
-      if (!session || session.phase !== 'handoff') return;
-      publishCrossTabDrag({
-        ...session,
-        targetPosition: getTargetPosition(session, session.clientX, session.clientY),
-      });
-    });
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const session = crossTabDragRef.current;
-      if (!session || session.phase !== 'handoff') return;
-      autoscrollPointerYRef.current = event.clientY;
-      publishCrossTabDrag({
-        ...session,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        targetPosition: getTargetPosition(session, event.clientX, event.clientY),
-      });
-    };
-    const handleCanvasScroll = () => {
-      const session = crossTabDragRef.current;
-      if (!session || session.phase !== 'handoff') return;
-      publishCrossTabDrag({
-        ...session,
-        targetPosition: getTargetPosition(session, session.clientX, session.clientY),
-      });
-    };
-    const handleMouseUp = (event: MouseEvent) => {
-      const canvasRect = canvasRef.current?.getBoundingClientRect();
-      const isInsideCanvas = isPointInsideRect(event.clientX, event.clientY, canvasRect);
-      const session = crossTabDragRef.current;
-      if (isInsideCanvas && session?.phase === 'handoff') {
-        publishCrossTabDrag({
-          ...session,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          targetPosition: getTargetPosition(session, event.clientX, event.clientY),
-        });
-      }
-      finishCrossTabDrag(isInsideCanvas);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        finishCrossTabDrag(false);
-      }
-    };
-    const handleWindowBlur = () => finishCrossTabDrag(false);
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('blur', handleWindowBlur);
-    const canvas = canvasRef.current;
-    canvas?.addEventListener('scroll', handleCanvasScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(initialPositionFrame);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('blur', handleWindowBlur);
-      canvas?.removeEventListener('scroll', handleCanvasScroll);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref/setter passed as option; deps kept verbatim
-  }, [crossTabDrag?.phase, finishCrossTabDrag, getTargetPosition, publishCrossTabDrag]);
+  useHandoffPointerListeners({
+    phase: crossTabDrag?.phase,
+    crossTabDragRef,
+    autoscrollPointerYRef,
+    canvasRef,
+    getTargetPosition,
+    publishCrossTabDrag,
+    finishCrossTabDrag,
+  });
 
   // --- Drag handlers ------------------------------------------------------------------
   const handleDragStart = useCallback(
