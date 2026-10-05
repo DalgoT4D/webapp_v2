@@ -13,7 +13,7 @@ import { Combobox, highlightText } from '@/components/ui/combobox';
 import { TooltipLabel } from '@/components/charts/styling/TooltipLabel';
 import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
 import type { ChartMetric } from '@/types/charts';
-import { getAvailableColumns, AGGREGATE_FUNCTIONS } from '@/components/charts/MetricsSelector';
+import { getAvailableColumns, AGGREGATE_FUNCTIONS } from '@/components/charts/logic/metric-columns';
 
 export interface SimpleMetricTabProps {
   index: number;
