@@ -2,6 +2,9 @@ import type { Region } from '@/hooks/api/useChart';
 import { ChartTypes, type Chart } from '@/types/charts';
 import type { ChartWidgetVariant } from './chart-widget-option';
 
+/** Flattens every parent selection on the drill path into column → value (the chart builders' rule). */
+export { collectDrillFilters } from '@/components/charts/logic/map-overlay';
+
 /** One step of a dashboard map's drill-down (geojson 0 = resolve from region_id). */
 export interface WidgetMapDrillLevel {
   level: number;
@@ -42,20 +45,6 @@ export interface WidgetRegionClickContext {
   drillDownPath: WidgetMapDrillLevel[];
   activeGeographicColumn: string | null;
   regionName: string;
-}
-
-/** Flattens every parent selection on the drill path into column → value. */
-export function collectDrillFilters(drillDownPath: WidgetMapDrillLevel[]): Record<string, string> {
-  const filters: Record<string, string> = {};
-  if (drillDownPath.length > 0) {
-    // Collect all parent selections from the drill-down path
-    drillDownPath.forEach((level) => {
-      level.parent_selections.forEach((selection) => {
-        filters[selection.column] = selection.value;
-      });
-    });
-  }
-  return filters;
 }
 
 /**
