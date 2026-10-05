@@ -141,13 +141,13 @@ jest.mock('@/components/charts/TableChart', () => ({
 jest.mock('@/components/charts/ChartExportDropdown', () => ({
   ChartExportDropdown: () => <div data-testid="mock-chart-export" />,
 }));
-jest.mock('@/components/charts/map/MapDataConfigurationV3', () => ({
+jest.mock('@/components/charts/chart-types/map/MapDataConfigurationV3', () => ({
   MapDataConfigurationV3: () => <div data-testid="mock-map-config" />,
 }));
-jest.mock('@/components/charts/map/MapCustomizations', () => ({
+jest.mock('@/components/charts/chart-types/map/MapCustomizations', () => ({
   MapCustomizations: () => <div data-testid="mock-map-customizations" />,
 }));
-jest.mock('@/components/charts/map/MapPreview', () => ({
+jest.mock('@/components/charts/chart-types/map/MapPreview', () => ({
   MapPreview: () => <div data-testid="mock-map-preview" />,
 }));
 jest.mock('@/components/charts/SaveOptionsDialog', () => ({

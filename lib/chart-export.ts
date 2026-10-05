@@ -3,7 +3,10 @@ import jsPDF from 'jspdf';
 import * as echarts from 'echarts';
 import html2canvas from 'html2canvas-pro';
 import { apiGetBinary } from '@/lib/api';
-import { exportPivotAsCsv, getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import {
+  exportPivotAsCsv,
+  getPivotRenderProps,
+} from '@/components/charts/chart-types/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 
 export interface ExportOptions {

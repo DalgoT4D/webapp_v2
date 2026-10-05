@@ -67,7 +67,7 @@ const EDGES: Edge[] = [
   },
   {
     label: 'a metric charted',
-    file: 'app/charts/new/configure/page.tsx',
+    file: 'components/charts/hooks/useSaveNewChart.ts', // the chart create page's save
     event: 'METRIC_USED',
     ids: ['metric_id', 'chart_id'],
   },

@@ -6,7 +6,10 @@ import {
 } from '@/components/charts/logic/payload';
 import { toMapLayers } from '@/components/charts/logic/map-layers';
 import { getApiCustomizations } from '@/lib/chart-payload-utils';
-import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
+import {
+  buildPivotDataFields,
+  buildPivotExtraConfig,
+} from '@/components/charts/chart-types/pivot-table/utils';
 import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
 
 /** Compare what goes over the wire (undefined keys dropped), like the E2E payload snapshots. */

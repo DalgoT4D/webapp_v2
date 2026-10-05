@@ -4,7 +4,7 @@
  * Legends will adapt, paginate, or hide based on available space - Superset-like behavior.
  */
 
-import type { LegendPosition } from './chart-legend-utils';
+import type { LegendPosition } from '@/components/charts/chart-types/echarts/legend';
 
 /**
  * Size thresholds for responsive behavior

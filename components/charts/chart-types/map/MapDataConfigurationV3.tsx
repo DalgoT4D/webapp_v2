@@ -1,0 +1,378 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MapPin, Plus, Eye, ChevronDown, ChevronUp, Trash2, Filter, Check, X } from 'lucide-react';
+import { MetricsSelector } from '@/components/charts/MetricsSelector';
+import { DataSourceSection } from '@/components/charts/builder/data-config/DataSourceSection';
+import { FilterOperatorSelect } from '@/components/charts/builder/data-config/FilterOperatorSelect';
+import { ChartTypeSelector } from '@/components/charts/ChartTypeSelector';
+import { DynamicLevelConfig } from './DynamicLevelConfig';
+import { useColumns, useChartDataPreview } from '@/hooks/api/useChart';
+import type { ChartBuilderFormData, ChartMetric } from '@/types/charts';
+import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { buildDatasetChangePatch } from '@/components/charts/logic/dataset-change';
+import { hasExistingMapConfig } from '@/components/charts/logic/auto-prefill';
+import { Combobox } from '@/components/ui/combobox';
+
+// Column data type
+interface TableColumn {
+  name: string;
+  data_type: string;
+  column_name: string;
+}
+
+interface MapDataConfigurationV3Props {
+  formData: ChartBuilderFormData;
+  onFormDataChange: (updates: Partial<ChartBuilderFormData>) => void;
+  disabled?: boolean;
+}
+
+const AGGREGATE_FUNCTIONS = [
+  { value: 'sum', label: 'Sum' },
+  { value: 'avg', label: 'Average' },
+  { value: 'count', label: 'Count' },
+  { value: 'min', label: 'Minimum' },
+  { value: 'max', label: 'Maximum' },
+  { value: 'count_distinct', label: 'Count Distinct' },
+];
+
+// Component for searchable value input - same as in ChartDataConfigurationV3
+const SearchableValueInput = React.memo(function SearchableValueInput({
+  schema,
+  table,
+  column,
+  operator,
+  value,
+  onChange,
+  disabled,
+  idPrefix,
+}: {
+  schema?: string;
+  table?: string;
+  column: string;
+  operator: string;
+  value: any;
+  onChange: (value: any) => void;
+  disabled?: boolean;
+  /** Stable prefix for data-testids / Combobox ids (E2E selectors) */
+  idPrefix?: string;
+}) {
+  // Get column values from preview data instead of separate API call
+  const { data: previewData } = useChartDataPreview(
+    schema && table
+      ? {
+          chart_type: 'bar',
+          computation_type: 'raw',
+          schema_name: schema,
+          table_name: table,
+          x_axis: column,
+          y_axis: column,
+        }
+      : null,
+    1,
+    500 // Get more rows to have better distinct values
+  );
+
+  // Extract distinct values from preview data
+  const columnValues = React.useMemo(() => {
+    if (!previewData?.data || !column) return null;
+
+    const distinctValues = new Set<string>();
+    previewData.data.forEach((row: Record<string, any>) => {
+      const value = row[column];
+      if (value !== null && value !== undefined && String(value).trim() !== '') {
+        distinctValues.add(String(value));
+      }
+    });
+
+    return Array.from(distinctValues).sort();
+  }, [previewData, column]);
+
+  // For null checks, no value input needed
+  if (operator === 'is_null' || operator === 'is_not_null') {
+    return null;
+  }
+
+  // For 'in' and 'not_in' operators, show multiselect dropdown if we have column values
+  if (operator === 'in' || operator === 'not_in') {
+    if (columnValues && columnValues.length > 0) {
+      const selectedValues = Array.isArray(value)
+        ? value
+        : value
+          ? String(value)
+              .split(',')
+              .map((v: string) => v.trim())
+          : [];
+
+      return (
+        <div className="h-8 flex-1">
+          <Combobox
+            id={idPrefix}
+            mode="multi"
+            items={columnValues
+              .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+              .slice(0, 100)
+              .map((val) => ({ value: val.toString(), label: val.toString() }))}
+            values={selectedValues}
+            onValuesChange={(vals) => onChange(vals.join(', '))}
+            disabled={disabled}
+            placeholder={
+              selectedValues.length > 0 ? `${selectedValues.length} selected` : 'Select values'
+            }
+            compact
+          />
+        </div>
+      );
+    } else {
+      // Fallback to text input for in/not_in when no column values
+      return (
+        <Input
+          type="text"
+          placeholder="value1, value2, value3"
+          data-testid={idPrefix ? `${idPrefix}-text` : undefined}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="h-8 flex-1"
+        />
+      );
+    }
+  }
+
+  // If we have column values, show searchable dropdown
+  if (columnValues && columnValues.length > 0) {
+    return (
+      <Combobox
+        id={idPrefix}
+        items={columnValues
+          .filter((val) => val !== null && val !== undefined && val.toString().trim() !== '')
+          .slice(0, 100)
+          .map((val) => ({ value: val.toString(), label: val.toString() }))}
+        value={value || ''}
+        onValueChange={(val) => onChange(val)}
+        disabled={disabled}
+        searchPlaceholder="Search values..."
+        placeholder="Select value"
+        compact
+        className="flex-1"
+      />
+    );
+  }
+
+  // Fallback to regular input
+  return (
+    <Input
+      type="text"
+      placeholder="Enter value"
+      data-testid={idPrefix ? `${idPrefix}-text` : undefined}
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="h-8 flex-1"
+    />
+  );
+});
+
+export function MapDataConfigurationV3({
+  formData,
+  onFormDataChange,
+  disabled,
+}: MapDataConfigurationV3Props) {
+  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+
+  // Memoize normalized columns to prevent unnecessary re-renders
+  const normalizedColumns = React.useMemo(
+    () =>
+      columns?.map((col) => ({
+        name: col.column_name || col.name, // Use 'name' to match TableColumn interface
+        data_type: col.data_type,
+        column_name: col.column_name || col.name, // Add this for backward compatibility
+      })) || [],
+    [columns]
+  );
+
+  const allColumns = normalizedColumns;
+
+  // Memoize column items for Combobox to prevent unnecessary re-renders
+  const columnItems = React.useMemo(
+    () =>
+      normalizedColumns.map((col) => ({
+        value: col.column_name,
+        label: col.column_name,
+      })),
+    [normalizedColumns]
+  );
+
+  // Handle dataset changes with complete form reset for maps
+  const handleDatasetChange = (schema_name: string, table_name: string) => {
+    const patch = buildDatasetChangePatch(formData, schema_name, table_name, 'map');
+    if (patch) onFormDataChange(patch);
+  };
+
+  // Auto-prefill map configuration when columns are loaded
+  React.useEffect(() => {
+    if (columns && formData.schema_name && formData.table_name && formData.chart_type === 'map') {
+      // Check if we should auto-prefill (no existing configuration)
+      if (!hasExistingMapConfig(formData)) {
+        const autoConfig = generateAutoPrefilledConfig('map', normalizedColumns);
+        if (Object.keys(autoConfig).length > 0) {
+          onFormDataChange(autoConfig);
+        }
+      }
+    }
+  }, [columns, formData.schema_name, formData.table_name, normalizedColumns, onFormDataChange]);
+
+  // Removed handleCancelDatasetEdit - using simple dropdown like other chart types
+
+  return (
+    <div className="space-y-4">
+      {/* Chart Type Selector - without duplicate title */}
+      <ChartTypeSelector
+        value={formData.chart_type}
+        onChange={(chart_type) => onFormDataChange({ chart_type })}
+        disabled={disabled}
+      />
+
+      <DataSourceSection
+        schemaName={formData.schema_name}
+        tableName={formData.table_name}
+        onDatasetChange={handleDatasetChange}
+        disabled={disabled}
+      />
+
+      {/* Metrics - use MetricsSelector with single metric */}
+      <MetricsSelector
+        metrics={formData.metrics || []}
+        onChange={(metrics: ChartMetric[]) => {
+          // Map metrics to legacy fields for compatibility
+          const metric = metrics[0];
+          onFormDataChange({
+            metrics,
+            value_column: metric?.column,
+            aggregate_column: metric?.column,
+            aggregate_function: metric?.aggregation,
+          });
+        }}
+        columns={normalizedColumns}
+        disabled={disabled}
+        chartType="map"
+        maxMetrics={1}
+        schemaName={formData.schema_name}
+        tableName={formData.table_name}
+      />
+
+      {/* Filters Section */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-900">Data Filters</Label>
+        <div className="space-y-2">
+          {(formData.filters || []).map((filter, index) => (
+            <div key={index} className="flex gap-2 items-center">
+              <Combobox
+                id={`chart-filter-column-${index}`}
+                items={columnItems}
+                value={filter.column}
+                onValueChange={(value) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, column: value };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+                searchPlaceholder="Search columns..."
+                placeholder="Column"
+                compact
+                className="flex-1"
+              />
+
+              <FilterOperatorSelect
+                index={index}
+                value={filter.operator}
+                onChange={(operator) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, operator };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              />
+
+              <SearchableValueInput
+                schema={formData.schema_name}
+                table={formData.table_name}
+                column={filter.column}
+                operator={filter.operator}
+                value={filter.value}
+                idPrefix={`chart-filter-value-${index}`}
+                onChange={(value) => {
+                  const newFilters = [...(formData.filters || [])];
+                  newFilters[index] = { ...filter, value };
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              />
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                data-testid={`remove-filter-${index}`}
+                onClick={() => {
+                  const newFilters = (formData.filters || []).filter((_, i) => i !== index);
+                  onFormDataChange({ filters: newFilters });
+                }}
+                disabled={disabled}
+              >
+                ✕
+              </Button>
+            </div>
+          ))}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const newFilters = [
+                ...(formData.filters || []),
+                { column: '', operator: 'equals' as any, value: '' },
+              ];
+              onFormDataChange({ filters: newFilters });
+            }}
+            disabled={disabled}
+            data-testid="chart-add-filter-btn"
+            className="w-full bg-gray-900 text-white hover:bg-gray-700 hover:text-white border-gray-900"
+          >
+            + Add Filter
+          </Button>
+        </div>
+      </div>
+
+      {/* Simplified Map Configuration */}
+      {(() => {
+        const metric = formData.metrics?.[0];
+        const hasValidMetric = metric
+          ? !!(metric.column_expression || metric.aggregation)
+          : !!(
+              formData.aggregate_function &&
+              (formData.aggregate_function === 'count' || formData.aggregate_column)
+            );
+        return hasValidMetric;
+      })() && (
+        <div className="space-y-4 pt-4 border-t">
+          <div>
+            <Label className="text-sm font-medium text-gray-900">Map Configuration</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure geographic levels and drill-down functionality
+            </p>
+          </div>
+
+          {/* Simplified Map Configuration - Single Card */}
+          <DynamicLevelConfig formData={formData} onChange={onFormDataChange} disabled={disabled} />
+        </div>
+      )}
+    </div>
+  );
+}

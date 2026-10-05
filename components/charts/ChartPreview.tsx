@@ -4,26 +4,28 @@ import { useRef, useEffect, useCallback } from 'react';
 import * as echarts from 'echarts';
 import { Loader2, AlertCircle, BarChart2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TableChart } from './TableChart';
-import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
-import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import { TableChart } from './chart-types/table/TableChart';
+import PivotTableChart from '@/components/charts/chart-types/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table/utils';
 import { PivotTableResponse } from '@/types/pivot-table';
 import {
   applyLegendPosition,
   extractLegendPosition,
   isLegendPaginated,
   type LegendPosition,
-} from '@/lib/chart-legend-utils';
-import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+} from '@/components/charts/chart-types/echarts/legend';
+import { applyStackedBarLabels } from '@/components/charts/chart-types/echarts/stacked-bar';
 
 import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
-  applyPieDateFormatting,
   applyLineBarChartFormatting,
+} from '@/components/charts/chart-types/echarts/formatting';
+import {
+  applyPieDateFormatting,
   applyLineBarDateFormatting,
-} from '@/lib/chart-formatting-utils';
+} from '@/components/charts/chart-types/echarts/date-formatting';
 import { ChartTypes } from '@/types/charts';
 import { mergeTableColumnFormatting } from '@/lib/chart-payload-utils';
 

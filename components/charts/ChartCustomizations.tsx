@@ -15,8 +15,8 @@ import { LineChartCustomizations } from '@/components/charts/chart-types/echarts
 import { PieChartCustomizations } from '@/components/charts/chart-types/echarts/PieChartCustomizations';
 import { NumberChartCustomizations } from '@/components/charts/chart-types/echarts/NumberChartCustomizations';
 import { TableChartCustomizations } from '@/components/charts/chart-types/table/TableChartCustomizations';
-import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
-import { pruneStaleFormatting } from '@/components/charts/pivot-table/utils';
+import PivotTableCustomizations from '@/components/charts/chart-types/pivot-table/PivotTableCustomizations';
+import { pruneStaleFormatting } from '@/components/charts/chart-types/pivot-table/utils';
 
 interface ColumnInfo {
   column_name?: string;

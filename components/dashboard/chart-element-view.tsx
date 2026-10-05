@@ -16,8 +16,8 @@ import {
   Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import PivotTableChart from '@/components/charts/pivot-table/PivotTableChart';
-import { getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import PivotTableChart from '@/components/charts/chart-types/pivot-table/PivotTableChart';
+import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { cn } from '@/lib/utils';
 import useSWR from 'swr';
@@ -27,15 +27,15 @@ import {
   useChartDataPreview,
   useChartDataPreviewTotalRows,
   useMapDataOverlay,
-  transformMapDataOverlayPayload,
   useGeoJSONData,
   useRegions,
   useRegionGeoJSONs,
 } from '@/hooks/api/useChart';
+import { transformMapDataOverlayPayload } from '@/components/charts/logic/map-overlay';
 import { ChartTitleEditor } from './chart-title-editor';
 import { DataPreview } from '@/components/charts/DataPreview';
-import { TableChart } from '@/components/charts/TableChart';
-import { MapPreview } from '@/components/charts/map/MapPreview';
+import { TableChart } from '@/components/charts/chart-types/table/TableChart';
+import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
 import { type ChartTitleConfig } from '@/lib/chart-title-utils';
 import { resolveDashboardFilters } from '@/lib/dashboard-filter-utils';
 import {
@@ -43,7 +43,7 @@ import {
   extractLegendPosition,
   isLegendPaginated,
   type LegendPosition,
-} from '@/lib/chart-legend-utils';
+} from '@/components/charts/chart-types/echarts/legend';
 import {
   applyResponsiveLegend,
   getResponsiveGridMargins,
@@ -54,11 +54,13 @@ import {
   createTooltipFormatter,
   applyNumberChartFormatting,
   applyPieChartFormatting,
-  applyPieDateFormatting,
   applyLineBarChartFormatting,
+} from '@/components/charts/chart-types/echarts/formatting';
+import {
+  applyPieDateFormatting,
   applyLineBarDateFormatting,
-} from '@/lib/chart-formatting-utils';
-import { applyStackedBarLabels } from '@/lib/stacked-bar-utils';
+} from '@/components/charts/chart-types/echarts/date-formatting';
+import { applyStackedBarLabels } from '@/components/charts/chart-types/echarts/stacked-bar';
 import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
 import { ChartTypes, type ChartDataPayload, type ChartDimension } from '@/types/charts';
 import { CHART_DRILL_SOURCES } from '@/constants/analytics';
