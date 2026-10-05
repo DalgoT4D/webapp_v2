@@ -1,9 +1,9 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { ChartElementView } from '@/components/dashboard/chart-element-view';
 import { UnifiedTextElement } from '@/components/dashboard/text-element-unified';
+import { LegacyHeading } from '@/components/dashboard/widgets/view-widgets';
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { FrozenChartConfig } from '@/types/reports';
 import {
@@ -72,23 +72,10 @@ export function PrintLayout({
       }
 
       case 'heading': {
-        const level = component.config?.level || 2;
-        const headingStyles = cn(
-          'text-gray-900 font-semibold',
-          level === 1 && 'text-2xl',
-          level === 2 && 'text-xl',
-          level === 3 && 'text-lg'
-        );
-        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
         return (
           <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0 }}>
             <div className="p-4 flex items-center">
-              <HeadingTag
-                className={headingStyles}
-                style={{ color: component.config?.color || '#1f2937' }}
-              >
-                {component.config?.text || 'Heading'}
-              </HeadingTag>
+              <LegacyHeading config={component.config} />
             </div>
           </div>
         );

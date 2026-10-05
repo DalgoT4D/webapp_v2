@@ -24,12 +24,8 @@ import { cn } from '@/lib/utils';
 import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useAuthStore } from '@/stores/authStore';
-import { ChartElementView } from './chart-element-view';
-import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { UnifiedTextElement } from './text-element-unified';
-import { KPIChartElement } from './kpi-chart-element';
 import { type AppliedFilters, type DashboardFilterConfig } from '@/types/dashboard-filters';
 import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
@@ -54,7 +50,8 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { getChartViewUrl, getKpiViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
+import { WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
+import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
 import {
   markDashboardShared,
   type WalkthroughStage,
@@ -535,6 +532,27 @@ export function DashboardNativeView({
   const handleRemovePersonalLanding = () => removeMyLanding();
   const handleSetOrgDefault = () => makeOrgDefault(dashboardId);
 
+  // What every widget reads from this view (one object per render)
+  const widgetContext: ViewWidgetContext = {
+    dashboardFilterRows: dashboard?.filters,
+    selectedFilters,
+    dashboardFilterConfigs: dashboardFilters,
+    isPublicMode,
+    publicToken,
+    isReportMode,
+    frozenChartConfigs,
+    snapshotId,
+    commentStates,
+    onCommentStateChange,
+    autoOpenCommentChartId,
+    canModerateComments,
+    orgLogoUrl,
+    showWidgetNavigation,
+    widgetNavigationSource,
+    navigate: (url: string) => router.push(url),
+    onFilterChange: handleFilterChange,
+  };
+
   // Render dashboard components (from active tab)
   const renderComponent = (componentId: string) => {
     const components = currentTab?.components;
@@ -543,149 +561,10 @@ export function DashboardNativeView({
     const component = components[componentId];
     if (!component) return null;
 
-    switch (component.type) {
-      case 'chart':
-        return (
-          <div key={componentId} className="h-full">
-            <ChartElementView
-              chartId={Number(component.config?.chartId)}
-              dashboardFilters={selectedFilters}
-              dashboardFilterConfigs={dashboardFilters}
-              viewMode={true}
-              className="h-full"
-              isPublicMode={isPublicMode}
-              publicToken={publicToken}
-              config={component.config}
-              frozenChartConfig={
-                isReportMode && frozenChartConfigs
-                  ? frozenChartConfigs[String(component.config?.chartId)]
-                  : undefined
-              }
-              snapshotId={isReportMode ? snapshotId : undefined}
-              commentStates={isReportMode ? commentStates : undefined}
-              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
-              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
-              canModerateComments={isReportMode ? canModerateComments : undefined}
-              orgLogoUrl={orgLogoUrl}
-              onView={
-                showWidgetNavigation
-                  ? () =>
-                      router.push(
-                        getChartViewUrl(Number(component.config?.chartId), widgetNavigationSource)
-                      )
-                  : undefined
-              }
-            />
-          </div>
-        );
-
-      case 'text':
-        // Use the same UnifiedTextElement component as edit mode for perfect consistency
-        return (
-          <div key={componentId} className="w-full h-full">
-            <UnifiedTextElement
-              config={component.config}
-              onUpdate={() => {}} // No-op in view mode
-              isEditMode={false}
-            />
-          </div>
-        );
-
-      case 'heading':
-        // Legacy heading component - keep for backward compatibility
-        const level = component.config?.level || 2;
-        const headingStyles = cn(
-          'text-gray-900 font-semibold',
-          level === 1 && 'text-2xl',
-          level === 2 && 'text-xl',
-          level === 3 && 'text-lg'
-        );
-
-        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
-        return (
-          <div key={componentId} className="h-full p-4 flex items-center">
-            <HeadingTag
-              className={headingStyles}
-              style={{ color: component.config?.color || '#1f2937' }}
-            >
-              {component.config?.text || 'Heading'}
-            </HeadingTag>
-          </div>
-        );
-
-      case 'kpi':
-        return (
-          <div key={componentId} className="h-full">
-            <KPIChartElement
-              kpiId={Number(component.config?.kpiId)}
-              config={component.config}
-              dashboardFilters={selectedFilters}
-              snapshotId={isReportMode ? snapshotId : undefined}
-              publicToken={publicToken}
-              isPublicMode={isPublicMode}
-              isReportMode={isReportMode}
-              commentStates={isReportMode ? commentStates : undefined}
-              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
-              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
-              canModerateComments={isReportMode ? canModerateComments : undefined}
-              onView={
-                showWidgetNavigation
-                  ? () =>
-                      router.push(
-                        getKpiViewUrl(Number(component.config?.kpiId), widgetNavigationSource)
-                      )
-                  : undefined
-              }
-            />
-          </div>
-        );
-
-      case 'filter':
-        // Get the actual filter data from dashboard.filters using the filterId reference
-        const filterId = component.config?.filterId || component.config?.id;
-
-        // First try to find in dashboard.filters array
-        let filterData = dashboard?.filters?.find((f: any) => {
-          // Convert both to numbers for comparison since one might be string
-          return Number(f.id) === Number(filterId);
-        });
-
-        // If not found in filters array (for backward compatibility), use config directly
-        if (!filterData && component.config?.column_name) {
-          filterData = component.config;
-        }
-
-        if (!filterData) {
-          return (
-            <div key={componentId} className="h-full p-4 bg-red-50 border border-red-200 rounded">
-              <p className="text-red-600">Filter not found: ID {filterId}</p>
-              <p className="text-xs">
-                Available: {dashboard?.filters?.map((f: any) => f.id).join(', ')}
-              </p>
-            </div>
-          );
-        }
-
-        // Convert to proper format using conversion function
-        const normalizedFilter = toFilterConfig(filterData);
-
-        return (
-          <div key={componentId} className="h-full">
-            <FilterElement
-              filter={normalizedFilter}
-              onRemove={() => {}} // No remove in view mode
-              isEditMode={false}
-              value={selectedFilters[normalizedFilter.id]}
-              onChange={handleFilterChange}
-              isPublicMode={isPublicMode}
-              publicToken={publicToken}
-            />
-          </div>
-        );
-
-      default:
-        return null;
-    }
+    const ViewWidget = VIEW_WIDGETS[component.type];
+    return ViewWidget ? (
+      <ViewWidget componentId={componentId} component={component} ctx={widgetContext} />
+    ) : null;
   };
 
   if (isLoading) {

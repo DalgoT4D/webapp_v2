@@ -2,10 +2,7 @@
 
 import React, { memo } from 'react';
 import { Eye, Edit, X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { ChartElementV2 } from './chart-element-v2';
-import { KPIChartElement } from './kpi-chart-element';
-import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
+import { BUILDER_WIDGETS } from '@/components/dashboard/widgets/builder-widgets';
 import { DashboardComponentType } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useChart } from '@/hooks/api/useCharts';
@@ -78,6 +75,7 @@ function DashboardCellInner({
   const { kpi } = useKPI(isKPI ? component.config.kpiId : null);
   const canEditCharts = chart?.access_level === 'edit';
   const canEditKpis = kpi?.access_level === 'edit';
+  const BuilderWidget = BUILDER_WIDGETS[component.type];
 
   return (
     <div
@@ -199,36 +197,17 @@ function DashboardCellInner({
 
       {/* Content Area - Charts fully visible and interactive */}
       <div className="flex-1 flex flex-col min-h-0 drag-cancel">
-        {isChart && (
-          <ChartElementV2
-            onRemove={() => onRemove(item.i)}
-            onUpdate={(config: any) => onUpdate(item.i, config)}
-            chartId={component.config.chartId}
-            config={component.config}
+        {BuilderWidget && (
+          <BuilderWidget
+            item={item}
+            component={component}
             isResizing={isResizing}
             appliedFilters={appliedFilters}
-            dashboardFilterConfigs={initialFilters}
-          />
-        )}
-        {isText && (
-          <UnifiedTextElement
-            onUpdate={(config: UnifiedTextConfig) => onUpdate(item.i, config)}
-            config={component.config as UnifiedTextConfig}
-            componentId={item.i}
-            isEditMode={true}
+            initialFilters={initialFilters}
             dashboardId={dashboardId}
+            onRemove={onRemove}
+            onUpdate={onUpdate}
           />
-        )}
-        {isKPI && (
-          <Card className="h-full w-full flex flex-col">
-            <CardContent className="p-2 flex-1 flex flex-col min-h-0">
-              <KPIChartElement
-                kpiId={component.config.kpiId}
-                config={component.config}
-                isResizing={isResizing}
-              />
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>
