@@ -11,10 +11,6 @@ import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { ChartSelectorModal } from './chart-selector-modal';
 import { KPISelectorModal } from './kpi-selector-modal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { apiPut } from '@/lib/api';
 import { useDashboard } from '@/hooks/api/useDashboards';
@@ -25,25 +21,13 @@ import { useDashboardAutosave } from '@/components/dashboard/hooks/useDashboardA
 import { buildAddWidgetHandlers } from '@/components/dashboard/widgets/add-widget-handlers';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useDashboardAnimation } from '@/hooks/useDashboardAnimation';
-import {
-  Plus,
-  Save,
-  Undo,
-  Redo,
-  Loader2,
-  Type,
-  Check,
-  AlertCircle,
-  Filter,
-  ArrowLeft,
-  Eye,
-  Target,
-} from 'lucide-react';
+import { Filter } from 'lucide-react';
 // Removed toast import - using console for notifications
 // Charts, KPIs and text are rendered via DashboardCell
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { DashboardCell } from './DashboardCell';
+import { DashboardBuilderHeader } from '@/components/dashboard/builder/DashboardBuilderHeader';
 import { TabBar } from './tabs/TabBar';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
@@ -86,94 +70,6 @@ import {
   type DashboardEditorState,
   type DashboardSavePayloadOverrides,
 } from '@/components/dashboard/logic/editor-state';
-
-// Max length for the dashboard description (keeps the header compact).
-const DESCRIPTION_MAX_LENGTH = 100;
-
-/**
- * Compact description trigger in the header that opens an anchored popover with
- * a full textarea. Save commits (caller persists via onSave); Escape / outside
- * click reverts to the pre-edit value.
- */
-function DashboardDescriptionEditor({
-  value,
-  onChange,
-  onSave,
-  testId,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  onSave: () => void;
-  testId: string;
-}) {
-  const [open, setOpen] = useState(false);
-  // Snapshot captured when the popover opens, used to revert on dismiss
-  const snapshotRef = useRef(value);
-
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
-      snapshotRef.current = value;
-    } else {
-      // Dismissed without an explicit Save -> revert unsaved edits
-      onChange(snapshotRef.current);
-    }
-    setOpen(next);
-  };
-
-  const handleSave = () => {
-    setOpen(false);
-    onSave();
-  };
-
-  return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="text-left rounded px-2 py-0.5 hover:bg-gray-50 max-w-full"
-          data-testid={`${testId}-display`}
-        >
-          {value ? (
-            <span className="block truncate text-xs text-gray-600">{value}</span>
-          ) : (
-            <span className="text-xs text-gray-400 italic">+ Add description</span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${testId}-input`} className="text-sm font-medium">
-            Dashboard description
-          </Label>
-          <Textarea
-            id={`${testId}-input`}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Describe what this dashboard shows (optional)..."
-            className="h-24 resize-none text-sm"
-            maxLength={DESCRIPTION_MAX_LENGTH}
-            autoFocus
-            data-testid={`${testId}-input`}
-            onKeyDown={(e) => {
-              // Cmd/Ctrl+Enter saves; Escape is handled by the Popover (reverts)
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                handleSave();
-              }
-            }}
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">
-              {value.length}/{DESCRIPTION_MAX_LENGTH}
-            </span>
-            <Button size="sm" onClick={handleSave} data-testid={`${testId}-save`}>
-              Save
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 // Types
 // DashboardComponentType is imported from '@/types/dashboard' (single source, includes KPI).
@@ -846,6 +742,45 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       [router]
     );
 
+    // Title edit ends (Enter or blur): blank → "Untitled Dashboard", then save.
+    const handleTitleCommit = () => {
+      const finalTitle = title.trim() || 'Untitled Dashboard';
+      setTitle(finalTitle);
+      setIsEditingTitle(false);
+      saveDashboard();
+    };
+
+    // PINNED-BUGS: '"No charts → go create one" redirect can never fire — builder expects plain array, API returns paginated object'
+    const handleAddChartClick = () => {
+      if (!chartsLoading && chartsData && Array.isArray(chartsData) && chartsData.length === 0) {
+        router.push('/charts/new?from=dashboard');
+      } else {
+        setShowChartSelector(true);
+      }
+    };
+
+    const handleSaveClick = async () => {
+      // Fire only on explicit user save (not the autosave/title-blur/resize
+      // paths), and only once the PUT has actually succeeded — saveDashboard
+      // handles its own errors, so firing before the await counted failed
+      // saves as updates. The Save-and-View path fires the same event from
+      // the edit page with source: SAVE_AND_VIEW.
+      const saved = await saveDashboard();
+      if (saved) {
+        trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
+          dashboard_id: dashboardId,
+          source: DASHBOARD_UPDATE_SOURCES.SAVE_BUTTON,
+        });
+      }
+      const walkthrough = useInsightWalkthroughStore.getState();
+      if (
+        walkthrough.active &&
+        (walkthrough.stage === 'builder_save' || walkthrough.stage === 'builder_resize')
+      ) {
+        walkthrough.advanceTo('builder_preview');
+      }
+    };
+
     return (
       <div className="dashboard-builder h-full flex flex-col overflow-hidden">
         {crossTabDrag?.phase === 'handoff' &&
@@ -861,411 +796,30 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             document.body
           )}
         {/* Fixed Header with Title and Toolbar */}
-        <div className="border-b bg-white flex-shrink-0">
-          {/* Mobile Header */}
-          <div className="lg:hidden">
-            {/* Mobile Top Row - Title and Essential Actions */}
-            <div className="px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {onBack && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onBack}
-                    aria-label="Back"
-                    // testid read by the walkthrough's exit guard: the builder is otherwise
-                    // fully usable mid-walkthrough, and leaving it is the one thing that asks
-                    // first (see DASHBOARD_BUILDER_EXITS in insight-walkthrough-coachmark.tsx).
-                    data-testid="dashboard-back-btn"
-                    className="p-1 flex-shrink-0"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-                )}
-
-                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                  {isEditingTitle ? (
-                    <Input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Dashboard title..."
-                      className="text-sm font-semibold h-8"
-                      data-testid="dashboard-title-input-mobile"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const finalTitle = title.trim() || 'Untitled Dashboard';
-                          setTitle(finalTitle);
-                          setIsEditingTitle(false);
-                          saveDashboard();
-                        }
-                      }}
-                      onBlur={() => {
-                        const finalTitle = title.trim() || 'Untitled Dashboard';
-                        setTitle(finalTitle);
-                        setIsEditingTitle(false);
-                        saveDashboard();
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="cursor-pointer min-w-0"
-                      onClick={() => setIsEditingTitle(true)}
-                      data-testid="dashboard-title-display-mobile"
-                    >
-                      <h1 className="text-sm font-semibold truncate dashboard-header-title">
-                        {title}
-                      </h1>
-                    </div>
-                  )}
-
-                  <DashboardDescriptionEditor
-                    value={description}
-                    onChange={setDescription}
-                    onSave={() => saveDashboard()}
-                    testId="dashboard-description-mobile"
-                  />
-                </div>
-              </div>
-
-              {/* Mobile Quick Actions */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {onPreview && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onPreview}
-                    className="p-1.5"
-                    disabled={isNavigating}
-                    data-testid="view-dashboard-mobile-btn"
-                    aria-label={
-                      isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'
-                    }
-                    title={isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'}
-                  >
-                    {isNavigating ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile Bottom Row - Component Actions */}
-            <div className="px-4 pb-2 flex items-center gap-2 overflow-x-auto mobile-action-row">
-              <Button
-                onClick={() => setShowChartSelector(true)}
-                size="sm"
-                className="flex-shrink-0 h-8 text-xs"
-                data-testid="dashboard-builder-add-chart-btn-mobile"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Chart
-              </Button>
-              <Button
-                onClick={() => setShowKPISelector(true)}
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0 h-8 text-xs"
-                data-testid="dashboard-builder-add-kpi-btn-mobile"
-              >
-                <Target className="w-3 h-3 mr-1" />
-                KPI
-              </Button>
-              <Button
-                onClick={addTextComponent}
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0 h-8 text-xs"
-                data-testid="dashboard-builder-add-text-btn-mobile"
-              >
-                <Type className="w-3 h-3 mr-1" />
-                Text
-              </Button>
-              <div className="flex gap-1 ml-auto flex-shrink-0">
-                <Button
-                  onClick={undo}
-                  disabled={!canUndo}
-                  size="sm"
-                  variant="ghost"
-                  className="p-1 h-8"
-                  data-testid="dashboard-builder-undo-btn-mobile"
-                >
-                  <Undo className="w-3 h-3" />
-                </Button>
-                <Button
-                  onClick={redo}
-                  disabled={!canRedo}
-                  size="sm"
-                  variant="ghost"
-                  className="p-1 h-8"
-                  data-testid="dashboard-builder-redo-btn-mobile"
-                >
-                  <Redo className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Mobile Status Bar */}
-            {saveStatus !== 'idle' && (
-              <div
-                className="px-4 pb-2 flex items-center justify-between text-xs"
-                data-testid="dashboard-save-status-mobile"
-              >
-                {saveStatus === 'saving' && (
-                  <div
-                    className="flex items-center gap-1 text-gray-500"
-                    data-testid="dashboard-save-status-saving-mobile"
-                  >
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Saving...</span>
-                  </div>
-                )}
-                {saveStatus === 'saved' && (
-                  <div
-                    className="flex items-center gap-1 text-green-600"
-                    data-testid="dashboard-save-status-saved-mobile"
-                  >
-                    <Check className="w-3 h-3" />
-                    <span>Saved</span>
-                  </div>
-                )}
-                {saveStatus === 'error' && (
-                  <div
-                    className="flex items-center gap-1 text-red-600"
-                    data-testid="dashboard-save-status-error-mobile"
-                  >
-                    <AlertCircle className="w-3 h-3" />
-                    <span>Error</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Desktop Header */}
-          <div className="hidden lg:block px-6 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                {/* Back button */}
-                {onBack && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onBack}
-                    // See the compact header's copy of this button above.
-                    data-testid="dashboard-back-btn"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                )}
-
-                <div className="h-6 w-px bg-gray-300" />
-
-                {/* Title + Description editing — fixed width so the toolbar
-                    doesn't shift as the description text grows/shrinks */}
-                <div className="flex flex-col gap-0.5 w-64 flex-shrink-0">
-                  {isEditingTitle ? (
-                    <Input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Dashboard title..."
-                      className="text-lg font-semibold h-8 w-full"
-                      data-testid="dashboard-title-input"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const finalTitle = title.trim() || 'Untitled Dashboard';
-                          setTitle(finalTitle);
-                          setIsEditingTitle(false);
-                          saveDashboard();
-                        }
-                      }}
-                      onBlur={() => {
-                        const finalTitle = title.trim() || 'Untitled Dashboard';
-                        setTitle(finalTitle);
-                        setIsEditingTitle(false);
-                        saveDashboard();
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-2 py-0.5"
-                      onClick={() => setIsEditingTitle(true)}
-                      data-testid="dashboard-title-display"
-                    >
-                      <h1 className="text-lg font-semibold dashboard-header-title truncate">
-                        {title}
-                      </h1>
-                    </div>
-                  )}
-
-                  <DashboardDescriptionEditor
-                    value={description}
-                    onChange={setDescription}
-                    onSave={() => saveDashboard()}
-                    testId="dashboard-description"
-                  />
-                </div>
-              </div>
-
-              <div className="h-6 w-px bg-gray-300 flex-shrink-0" />
-
-              {/* Canvas actions — grouped right next to the title */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  onClick={() => {
-                    if (
-                      !chartsLoading &&
-                      chartsData &&
-                      Array.isArray(chartsData) &&
-                      chartsData.length === 0
-                    ) {
-                      router.push('/charts/new?from=dashboard');
-                    } else {
-                      setShowChartSelector(true);
-                    }
-                  }}
-                  size="sm"
-                  variant="outline"
-                  data-testid="add-chart-btn"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Chart
-                </Button>
-
-                <Button
-                  onClick={() => setShowKPISelector(true)}
-                  size="sm"
-                  variant="outline"
-                  data-testid="add-kpi-btn"
-                >
-                  <Target className="w-4 h-4 mr-2" />
-                  Add KPI
-                </Button>
-
-                <Button
-                  onClick={addTextComponent}
-                  size="sm"
-                  variant="outline"
-                  data-testid="dashboard-builder-add-text-btn"
-                >
-                  <Type className="w-4 h-4 mr-2" />
-                  Add Text
-                </Button>
-
-                <div className="ml-2 flex gap-1">
-                  <Button
-                    onClick={undo}
-                    disabled={!canUndo}
-                    size="sm"
-                    variant="ghost"
-                    data-testid="dashboard-builder-undo-btn"
-                  >
-                    <Undo className="w-4 h-4" />
-                  </Button>
-
-                  <Button
-                    onClick={redo}
-                    disabled={!canRedo}
-                    size="sm"
-                    variant="ghost"
-                    data-testid="dashboard-builder-redo-btn"
-                  >
-                    <Redo className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Right zone: status + save/preview */}
-              <div className="flex items-center gap-2 flex-1 justify-end">
-                {/* Save Status Indicator */}
-                {saveStatus === 'saving' && (
-                  <div
-                    className="flex items-center gap-2 text-sm text-gray-500"
-                    data-testid="dashboard-save-status-saving"
-                  >
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="hidden xl:inline">Saving...</span>
-                  </div>
-                )}
-                {saveStatus === 'saved' && (
-                  <div
-                    className="flex items-center gap-2 text-sm text-green-600"
-                    data-testid="dashboard-save-status-saved"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span className="hidden xl:inline">Saved</span>
-                  </div>
-                )}
-                {saveStatus === 'error' && (
-                  <div
-                    className="flex items-center gap-2 text-sm text-red-600"
-                    data-testid="dashboard-save-status-error"
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="hidden xl:inline">{saveError || 'Save failed'}</span>
-                  </div>
-                )}
-
-                <Button
-                  onClick={async () => {
-                    // Fire only on explicit user save (not the autosave/title-blur/resize
-                    // paths), and only once the PUT has actually succeeded — saveDashboard
-                    // handles its own errors, so firing before the await counted failed
-                    // saves as updates. The Save-and-View path fires the same event from
-                    // the edit page with source: SAVE_AND_VIEW.
-                    const saved = await saveDashboard();
-                    if (saved) {
-                      trackEvent(ANALYTICS_EVENTS.DASHBOARD_UPDATED, {
-                        dashboard_id: dashboardId,
-                        source: DASHBOARD_UPDATE_SOURCES.SAVE_BUTTON,
-                      });
-                    }
-                    const walkthrough = useInsightWalkthroughStore.getState();
-                    if (
-                      walkthrough.active &&
-                      (walkthrough.stage === 'builder_save' ||
-                        walkthrough.stage === 'builder_resize')
-                    ) {
-                      walkthrough.advanceTo('builder_preview');
-                    }
-                  }}
-                  size="sm"
-                  data-testid="dashboard-save-btn"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  <span className="hidden lg:inline">Save</span>
-                </Button>
-
-                {/* Save changes and return to dashboard view mode. */}
-                {onPreview && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onPreview}
-                    disabled={isNavigating}
-                    data-testid="dashboard-preview-btn"
-                    className="min-w-[104px] justify-center px-4"
-                    aria-label={
-                      isNavigating ? 'Saving and opening dashboard view' : 'View dashboard'
-                    }
-                  >
-                    {isNavigating ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                    <span>{isNavigating ? 'Saving and opening view...' : 'View'}</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardBuilderHeader
+          title={title}
+          isEditingTitle={isEditingTitle}
+          onTitleChange={setTitle}
+          onTitleEditStart={() => setIsEditingTitle(true)}
+          onTitleCommit={handleTitleCommit}
+          description={description}
+          onDescriptionChange={setDescription}
+          onDescriptionSave={() => saveDashboard()}
+          onBack={onBack}
+          onPreview={onPreview}
+          isNavigating={isNavigating}
+          onAddChart={handleAddChartClick}
+          onAddChartCompact={() => setShowChartSelector(true)}
+          onAddKpi={() => setShowKPISelector(true)}
+          onAddText={addTextComponent}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          saveStatus={saveStatus}
+          saveError={saveError}
+          onSave={handleSaveClick}
+        />
         {/* Horizontal Filters Bar */}
         {filterLayout === 'horizontal' && !isFiltersCollapsed && (
           <UnifiedFiltersPanel
