@@ -11,22 +11,17 @@ import { computeHeaderSpans, formatPivotCell, getPivotConditionalColor } from '.
 import type { DateFormat } from '@/lib/formatters';
 import { useTableSearch } from '@/components/charts/hooks/useTableSearch';
 import { TableSearchBar } from '@/components/charts/styling/TableSearchBar';
+import {
+  buildEffectiveColumns,
+  buildPivotSearchCells,
+  COL_SUBTOTAL_MARKER,
+  type RenderColumn,
+} from './pivot-layout';
 
 interface ColumnFormatConfig {
   numberFormat?: NumberFormat;
   decimalPlaces?: number;
 }
-
-// Represents a column in the rendered table — either a leaf data column or a column subtotal
-interface RenderColumn {
-  type: 'leaf' | 'column_subtotal';
-  leafIdx?: number; // index into column_keys (for leaf)
-  subIdx?: number; // index into column_subtotals.keys (for subtotal)
-  headerKey: string[]; // padded key for header span computation
-}
-
-// Marker used in padded header keys to identify subtotal levels
-const COL_SUBTOTAL_MARKER = '__COL_SUBTOTAL__';
 
 interface PivotTableChartProps {
   data: PivotTableResponse;
@@ -93,35 +88,10 @@ export default function PivotTableChart({
 
   // Build an interleaved column list that includes both leaf and subtotal columns.
   // When column subtotals are absent, each entry is simply a leaf column.
-  const effectiveColumns: RenderColumn[] = useMemo(() => {
-    const subtotals = grid.column_subtotals;
-    if (!hasColumnKeys || !subtotals?.keys?.length) {
-      return columnKeys.map((key, idx) => ({
-        type: 'leaf' as const,
-        leafIdx: idx,
-        headerKey: key,
-      }));
-    }
-
-    // Map: leaf column index → subtotal index to insert after it
-    const insertMap = new Map<number, number>();
-    subtotals.insert_after.forEach((afterIdx, subIdx) => {
-      insertMap.set(afterIdx, subIdx);
-    });
-
-    const cols: RenderColumn[] = [];
-    for (let i = 0; i < columnKeys.length; i++) {
-      cols.push({ type: 'leaf', leafIdx: i, headerKey: columnKeys[i] });
-      if (insertMap.has(i)) {
-        const subIdx = insertMap.get(i)!;
-        // Pad subtotal key to same depth as leaf keys using marker
-        const padded = [...subtotals.keys[subIdx]];
-        while (padded.length < numColDims) padded.push(COL_SUBTOTAL_MARKER);
-        cols.push({ type: 'column_subtotal', subIdx, headerKey: padded });
-      }
-    }
-    return cols;
-  }, [columnKeys, grid.column_subtotals, hasColumnKeys, numColDims]);
+  const effectiveColumns: RenderColumn[] = useMemo(
+    () => buildEffectiveColumns(columnKeys, grid.column_subtotals, hasColumnKeys, numColDims),
+    [columnKeys, grid.column_subtotals, hasColumnKeys, numColDims]
+  );
 
   const formatCell = useCallback(
     (value: number | null, metricName: string): string =>
@@ -139,77 +109,29 @@ export default function PivotTableChart({
   // --- Search integration ---
 
   // Build flat cell list for search: row dimension labels + value cells + row totals
-  const searchCells = useMemo(() => {
-    const cells: { rowIndex: number; colIndex: number; displayValue: string }[] = [];
-    const rows = grid.rows ?? [];
-
-    rows.forEach((row, rowIdx) => {
-      let colCounter = 0;
-
-      // Row dimension labels
-      for (let d = 0; d < dimCount; d++) {
-        if (row.is_subtotal && d === 0) {
-          const groupLabel = row.row_labels.join(' > ');
-          const suffix = rowSubtotalLabel || 'Subtotal';
-          cells.push({
-            rowIndex: rowIdx,
-            colIndex: colCounter,
-            displayValue: `${groupLabel} ${suffix}`,
-          });
-        } else if (!row.is_subtotal && (rowSpans[rowIdx]?.[d] ?? 1) !== 0) {
-          // Skip cells merged into the row above (rowSpan) — they aren't rendered,
-          // so counting them would over-report matches for a single visible cell.
-          cells.push({
-            rowIndex: rowIdx,
-            colIndex: colCounter,
-            displayValue: String(row.row_labels[d] || ''),
-          });
-        }
-        colCounter++;
-      }
-
-      // Value cells per effective column (leaf + subtotal interleaved)
-      if (hasColumnKeys) {
-        effectiveColumns.forEach((col) => {
-          const colValues =
-            col.type === 'leaf'
-              ? row.values[col.leafIdx!]
-              : (row.column_subtotal_values?.[col.subIdx!] ?? []);
-          colValues.forEach((val, mIdx) => {
-            const metricName = metricHeaders[mIdx] || '';
-            cells.push({
-              rowIndex: rowIdx,
-              colIndex: colCounter,
-              displayValue: formatCell(val, metricName),
-            });
-            colCounter++;
-          });
-        });
-      }
-
-      // Row total cells
-      row.row_total.forEach((val, mIdx) => {
-        const metricName = metricHeaders[mIdx] || '';
-        cells.push({
-          rowIndex: rowIdx,
-          colIndex: colCounter,
-          displayValue: formatCell(val, metricName),
-        });
-        colCounter++;
-      });
-    });
-
-    return cells;
-  }, [
-    grid.rows,
-    dimCount,
-    hasColumnKeys,
-    metricHeaders,
-    formatCell,
-    rowSubtotalLabel,
-    effectiveColumns,
-    rowSpans,
-  ]);
+  const searchCells = useMemo(
+    () =>
+      buildPivotSearchCells(
+        grid.rows ?? [],
+        dimCount,
+        rowSpans,
+        hasColumnKeys,
+        effectiveColumns,
+        metricHeaders,
+        formatCell,
+        rowSubtotalLabel
+      ),
+    [
+      grid.rows,
+      dimCount,
+      hasColumnKeys,
+      metricHeaders,
+      formatCell,
+      rowSubtotalLabel,
+      effectiveColumns,
+      rowSpans,
+    ]
+  );
 
   const search = useTableSearch(searchCells);
 
