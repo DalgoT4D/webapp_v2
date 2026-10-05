@@ -43,7 +43,7 @@ interface MapPreviewProps {
 
   // Event handlers
   onChartReady?: (chart: echarts.ECharts) => void;
-  onRegionClick?: (regionName: string, regionData: any) => void;
+  onRegionClick?: (regionName: string, regionData: unknown) => void;
   drillDownPath?: DrillDownLevel[];
   onDrillUp?: (level: number) => void;
   onDrillHome?: () => void;

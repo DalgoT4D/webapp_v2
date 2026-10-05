@@ -1,4 +1,5 @@
 import { formatNumber, formatDate } from '@/lib/formatters';
+import type { DateFormat, NumberFormat } from '@/lib/formatters';
 import type { ConditionalFormattingRule } from '@/components/charts/styling/conditional-formatting';
 
 // URL detection pattern - matches http://, https://, and www. prefixed URLs
@@ -29,6 +30,7 @@ export interface TableColumnFormatting {
   suffix?: string;
 }
 
+// any: raw warehouse cell values
 function formatByType(
   value: any,
   formatting: TableColumnFormatting,
@@ -58,6 +60,7 @@ function formatByType(
 }
 
 /** Display text for a table cell. Moved verbatim from TableChart's inline formatCellValue. */
+// any: raw warehouse cell values
 export function formatTableCell(value: any, formatting: TableColumnFormatting | undefined): string {
   if (!formatting || value == null) return value?.toString() || '';
 
@@ -66,7 +69,7 @@ export function formatTableCell(value: any, formatting: TableColumnFormatting | 
 
   if (dateFormat && dateFormat !== 'default') {
     try {
-      return `${prefix}${formatDate(value, { format: dateFormat as any })}${suffix}`;
+      return `${prefix}${formatDate(value, { format: dateFormat as DateFormat })}${suffix}`;
     } catch {
       return value?.toString() || '';
     }
@@ -75,7 +78,7 @@ export function formatTableCell(value: any, formatting: TableColumnFormatting | 
     const numericValue = Number(value);
     if (isNaN(numericValue)) return value?.toString() || '';
     const formatted = formatNumber(numericValue, {
-      format: (numberFormat || 'default') as any,
+      format: (numberFormat || 'default') as NumberFormat,
       decimalPlaces,
     });
     return `${prefix}${formatted}${suffix}`;

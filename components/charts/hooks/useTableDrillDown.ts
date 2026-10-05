@@ -31,7 +31,7 @@ export function useTableDrillDown({
   const [tableDrillDownState, setTableDrillDownState] = useState<TableDrillDownState | null>(null);
 
   const handleTableRowClick = useCallback(
-    (rowData: Record<string, any>, columnName: string) => {
+    (rowData: Parameters<typeof drillIntoTableRow>[2], columnName: string) => {
       if (!isTable) return;
       const next = drillIntoTableRow(dimensions, tableDrillDownState, rowData, columnName);
       if (!next) return;

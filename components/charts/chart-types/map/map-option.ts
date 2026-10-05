@@ -67,7 +67,7 @@ export function buildMapTooltip(
       : isSmall
         ? 'max-width: 150px; white-space: normal; line-height: 1.4;'
         : '',
-    formatter: function (params: any) {
+    formatter: function (params: { name?: string; data?: { value: number | null } }) {
       const rawLabel = valueColumn || 'Value';
       const label = escapeHtml(rawLabel);
       const rawName = params.name ?? '';
@@ -216,7 +216,7 @@ export function buildMapChartOption({
   zoom,
 }: MapChartOptionInput) {
   // Create map series data
-  let seriesData: any[] = [];
+  let seriesData: MapRegionValue[] = [];
   if (mapData && mapData.length > 0) {
     // We have data to overlay on the map
     seriesData = mapData.map((item) => ({

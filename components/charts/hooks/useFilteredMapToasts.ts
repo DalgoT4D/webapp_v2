@@ -33,6 +33,7 @@ export function useFilteredMapToasts({
       !geojsonError
     ) {
       // Show toast for each applied filter
+      // any: ChartFilter.operator has no "not equals"/"!=" members (TS2367) — kept any, see Task 13 row 6
       chart.extra_config.filters.forEach((filter: any, index: number) => {
         // PINNED-BUGS: 'Detail filtered-map toast says "filtered" for excluded regions' (builder writes not_equals)
         const operatorText =

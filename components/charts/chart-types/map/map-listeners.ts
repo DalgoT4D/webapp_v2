@@ -8,7 +8,7 @@ import type * as echarts from 'echarts';
 export function attachMapDomListeners(
   chartDom: HTMLDivElement,
   chartInstance: MutableRefObject<echarts.ECharts | null>,
-  onRegionClick: ((regionName: string, regionData: any) => void) | undefined
+  onRegionClick: ((regionName: string, regionData: unknown) => void) | undefined
 ) {
   // Disable default pinch zoom behaviors
   chartDom.addEventListener(
@@ -33,7 +33,7 @@ export function attachMapDomListeners(
 
   // Add click event listener for region clicks
   if (onRegionClick) {
-    const handleClick = (params: any) => {
+    const handleClick = (params: { componentType?: string; name: string; data?: unknown }) => {
       if (params.componentType === 'geo' || params.componentType === 'series') {
         onRegionClick(params.name, params.data);
       }
