@@ -52,7 +52,7 @@ export function useChartViewTableData({
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url, page, size, filters]: [string, number, number, Record<string, any>]) => {
+        ? async ([url, page, size, filters]: [string, number, number, Record<string, unknown>]) => {
             // Public report: GET — server builds payload from frozen config
             const qp = new URLSearchParams({
               page: (page - 1).toString(),
@@ -72,7 +72,7 @@ export function useChartViewTableData({
             ChartDataPayload,
             number,
             number,
-            Record<string, any>,
+            Record<string, unknown>,
           ]) => {
             // Public dashboard: POST with payload (unchanged)
             const qp = new URLSearchParams({
@@ -138,7 +138,7 @@ export function useChartViewTableData({
       : null,
     isPublicMode && isTableChart
       ? isPublicReport
-        ? async ([url, filters]: [string, Record<string, any>]) => {
+        ? async ([url, filters]: [string, Record<string, unknown>]) => {
             // Public report: GET — server builds payload from frozen config
             const qp = new URLSearchParams();
             if (Object.keys(filters).length > 0) {
@@ -150,7 +150,7 @@ export function useChartViewTableData({
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             return response.json();
           }
-        : async ([url, payload, filters]: [string, ChartDataPayload, Record<string, any>]) => {
+        : async ([url, payload, filters]: [string, ChartDataPayload, Record<string, unknown>]) => {
             // Public dashboard: POST with payload (unchanged)
             const qp = new URLSearchParams();
             if (Object.keys(filters).length > 0) {

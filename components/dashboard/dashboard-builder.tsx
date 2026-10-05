@@ -50,6 +50,8 @@ const UNDO_HISTORY_DEPTH = 20;
 
 interface DashboardBuilderProps {
   dashboardId?: number;
+  // any: app/dashboards/[id]/edit/page.tsx's mockDashboard fallback doesn't satisfy
+  // BuilderInitialData (missing tabs, components entries missing id) — TS2322 — kept any, see Task 13 row 12
   initialData?: any;
   isNewDashboard?: boolean;
   dashboardLockInfo?: {
@@ -261,7 +263,7 @@ export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilder
     });
 
     // Handle when filters are applied (causes chart re-renders)
-    const handleFiltersApplied = (newAppliedFilters: Record<string, any>) => {
+    const handleFiltersApplied = (newAppliedFilters: Record<string, unknown>) => {
       console.log('🔄 Dashboard Builder - Filters Applied:', {
         newAppliedFilters,
         initialFilters,
