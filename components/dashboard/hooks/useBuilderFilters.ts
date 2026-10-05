@@ -22,7 +22,7 @@ async function revalidateDashboard(dashboardId: number) {
   mutate(`/api/dashboards/${dashboardId}/`);
 }
 
-/** The builder's filter modal: create, edit, close. Moved from dashboard-builder-v2.tsx. */
+/** The builder's filter modal: create, edit, close. Moved from dashboard-builder.tsx. */
 export function useBuilderFilters(dashboardId: number | undefined) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(null);

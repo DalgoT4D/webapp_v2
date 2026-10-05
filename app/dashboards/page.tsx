@@ -1,5 +1,5 @@
-import { DashboardListV2 } from '@/components/dashboard/dashboard-list-v2';
+import { DashboardList } from '@/components/dashboard/dashboard-list';
 
 export default function DashboardsPage() {
-  return <DashboardListV2 />;
+  return <DashboardList />;
 }

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
+import { DashboardBuilder } from '@/components/dashboard/dashboard-builder';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import {
   useLockReleaseOnLeave,
@@ -286,7 +286,7 @@ export default function EditDashboardPage() {
   }
 
   return (
-    <DashboardBuilderV2
+    <DashboardBuilder
       ref={dashboardBuilderRef}
       dashboardId={dashboardId}
       initialData={dashboardData}

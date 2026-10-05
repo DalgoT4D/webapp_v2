@@ -9,7 +9,7 @@ export const AUTOSAVE_DEBOUNCE_MS = 5000;
 export const HOLD_AFTER_UNDO_REDO_MS = 1000;
 
 /**
- * Autosave for the dashboard builder (moved from dashboard-builder-v2.tsx).
+ * Autosave for the dashboard builder (moved from dashboard-builder.tsx).
  * Deliberately NOT tracked in analytics: autosave is time-triggered, not user intent, and
  * useDebounce seeds with its initial value so this effect also runs on mount — any event here
  * would log builder opens as edits. DASHBOARD_UPDATED fires only from the explicit Save /

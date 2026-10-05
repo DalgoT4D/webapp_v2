@@ -62,7 +62,7 @@ export interface UseCrossTabDragOptions {
 /**
  * Dragging widgets: on the grid (RGL), with edge autoscroll, and across tabs — hover a tab for
  * 500ms to hand the widget over, then drop it on the other tab's canvas. Moved verbatim from
- * dashboard-builder-v2.tsx.
+ * dashboard-builder.tsx.
  */
 export function useCrossTabDrag({
   dashboardId,

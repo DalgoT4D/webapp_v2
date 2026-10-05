@@ -96,7 +96,7 @@ export function IngestView() {
 
   // The "Connect your data" coachmark points at the New Source button — hide it once the
   // wizard itself is open, same pattern as the KPI/chart selector modals in
-  // dashboard-builder-v2.tsx, so the coachmark doesn't sit awkwardly behind the wizard's own
+  // dashboard-builder.tsx, so the coachmark doesn't sit awkwardly behind the wizard's own
   // dialog overlay. The pick-a-source stages are the exception: their target IS inside the
   // wizard, so suppressing them would mean they never showed at all.
   //

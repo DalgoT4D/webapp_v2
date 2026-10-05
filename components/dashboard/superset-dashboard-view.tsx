@@ -13,7 +13,7 @@ import { apiGet } from '@/lib/api';
 import { SupersetEmbed } from './superset-embed';
 import { NoAccess } from '@/components/no-access';
 
-interface IndividualDashboardViewProps {
+interface SupersetDashboardViewProps {
   dashboardId: string;
   hideHeader?: boolean; // Hide header when used as landing page
   showMinimalHeader?: boolean; // Show only title when used as landing page
@@ -64,11 +64,11 @@ function ErrorFallback({ error }: { error: Error }) {
   );
 }
 
-export function IndividualDashboardView({
+export function SupersetDashboardView({
   dashboardId,
   hideHeader = false,
   showMinimalHeader = false,
-}: IndividualDashboardViewProps) {
+}: SupersetDashboardViewProps) {
   const router = useRouter();
 
   // Fetch dashboard details using SWR

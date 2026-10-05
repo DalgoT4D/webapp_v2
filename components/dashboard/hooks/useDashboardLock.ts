@@ -17,7 +17,7 @@ export interface BuilderCleanupHandle {
 
 /**
  * The builder's edit lock: take it on mount, refresh it every 60 s, and the builder's own
- * page-leave listeners. Moved verbatim from dashboard-builder-v2.tsx, including closures that
+ * page-leave listeners. Moved verbatim from dashboard-builder.tsx, including closures that
  * capture the first render: the mount/unmount cleanups see lockToken === null, so unmounting the
  * builder never sends DELETE itself. Back / View release through the returned unlockDashboard
  * (via the builder's cleanup ref); the edit page releases through useLockReleaseOnLeave.

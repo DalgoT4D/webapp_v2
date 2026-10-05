@@ -42,7 +42,7 @@ import { DashboardListTableHeader } from '@/components/dashboard/list/DashboardL
 import { DashboardListRow } from '@/components/dashboard/list/DashboardListRow';
 import { DashboardListSkeleton } from '@/components/dashboard/list/DashboardListSkeleton';
 
-export function DashboardListV2() {
+export function DashboardList() {
   const { sortBy, sortOrder, handleSort } = useListSort<DashboardSortColumn>('updated_at');
   const filters = useDashboardListFilters();
   const [isDeleting, setIsDeleting] = useState<number | null>(null);

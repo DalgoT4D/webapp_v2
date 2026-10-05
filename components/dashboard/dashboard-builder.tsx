@@ -56,7 +56,7 @@ import { CrossTabDragOverlay } from '@/components/dashboard/builder/CrossTabDrag
 /** Undo history keeps this many steps (E2E: "Undo history keeps 20 steps"). */
 const UNDO_HISTORY_DEPTH = 20;
 
-interface DashboardBuilderV2Props {
+interface DashboardBuilderProps {
   dashboardId?: number;
   initialData?: any;
   isNewDashboard?: boolean;
@@ -70,10 +70,10 @@ interface DashboardBuilderV2Props {
 }
 
 // Ref methods exposed to parent — shared with the edit page's ref via BuilderCleanupHandle.
-export type DashboardBuilderV2Ref = BuilderCleanupHandle;
+export type DashboardBuilderRef = BuilderCleanupHandle;
 
-export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBuilderV2Props>(
-  function DashboardBuilderV2(
+export const DashboardBuilder = forwardRef<DashboardBuilderRef, DashboardBuilderProps>(
+  function DashboardBuilder(
     { dashboardId, initialData, isNewDashboard, onBack, onPreview, isNavigating },
     ref
   ) {

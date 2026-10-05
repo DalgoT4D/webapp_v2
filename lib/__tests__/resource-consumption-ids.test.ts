@@ -49,7 +49,7 @@ const EDGES: Edge[] = [
   },
   {
     label: 'a dashboard copied from another',
-    file: 'components/dashboard/dashboard-list-v2.tsx',
+    file: 'components/dashboard/dashboard-list.tsx',
     event: 'DASHBOARD_DUPLICATED',
     ids: ['dashboard_id', 'new_dashboard_id'],
   },

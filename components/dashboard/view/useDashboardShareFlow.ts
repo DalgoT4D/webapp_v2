@@ -46,7 +46,7 @@ export function useDashboardShareFlow({ dashboard, refreshDashboard }: ShareFlow
 
   // The share dialog gets no coachmark of its own while the user is finding their way around
   // it, so the spotlight hides (same pattern as the KPI/chart picker modals in
-  // dashboard-builder-v2) — except for the two stages whose targets are inside this very
+  // dashboard-builder) — except for the two stages whose targets are inside this very
   // dialog: the Public Access switch and, once that's on, the copy button.
   useEffect(() => {
     useInsightWalkthroughStore
@@ -85,7 +85,7 @@ export function useDashboardShareFlow({ dashboard, refreshDashboard }: ShareFlow
 
   // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
   // General access flips to Public, and that is what moves the walkthrough on — same trick
-  // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
+  // dashboard-list uses for the "shared" milestone. The dialog stays open: the next stage
   // points at the copy button inside it.
   const handleMadePublic = useCallback(() => {
     markDashboardShared();

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
+import { SupersetDashboardView } from '@/components/dashboard/superset-dashboard-view';
 import { NoAccess } from '@/components/no-access';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
@@ -98,6 +98,6 @@ export default function DashboardViewPage() {
     return <DashboardNativeView dashboardId={parseInt(dashboardId)} />;
   } else {
     // Superset dashboard
-    return <IndividualDashboardView dashboardId={dashboardId} />;
+    return <SupersetDashboardView dashboardId={dashboardId} />;
   }
 }
