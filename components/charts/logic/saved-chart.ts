@@ -40,6 +40,7 @@ function mapLayersOf(chart: Chart) {
 /** Table dimensions: new `dimensions` shape, else `dimension_columns`, else the legacy single column. */
 function tableDimensionsOf(ec: SavedExtraConfig): ChartDimension[] {
   if (ec?.dimensions && ec.dimensions.length > 0) {
+    // any: saved dimensions are legacy strings or {column, enable_drill_down} objects
     return ec.dimensions.map((d: any) => ({
       column: d.column || d,
       enable_drill_down: d.enable_drill_down === true,
@@ -53,6 +54,7 @@ function tableDimensionsOf(ec: SavedExtraConfig): ChartDimension[] {
 
 function tableDimensionColumnsOf(ec: SavedExtraConfig): string[] {
   if (ec?.dimension_columns) return ec.dimension_columns;
+  // any: saved dimensions are legacy strings or {column, enable_drill_down} objects
   if (ec?.dimensions) return ec.dimensions.map((d: any) => d.column || d).filter(Boolean);
   return ec?.dimension_column ? [ec.dimension_column] : [];
 }

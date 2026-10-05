@@ -1,4 +1,4 @@
-import type { Chart, ChartBuilderFormData } from '@/types/charts';
+import type { Chart, ChartBuilderFormData, GeographicLevel } from '@/types/charts';
 import type { Region } from '@/hooks/api/useChart';
 import { getMapDrillColumn, type MapDrillLevel } from '@/components/charts/logic/map-overlay';
 
@@ -112,7 +112,9 @@ const NO_FURTHER_LEVELS: DetailDrillToast = {
 function resolveHierarchyClick(ctx: DetailRegionClickContext): DetailRegionClick {
   const hierarchy = ctx.chart.extra_config.geographic_hierarchy;
   const currentLevel = ctx.drillDownPath.length;
-  const nextLevel = hierarchy.drill_down_levels.find((l: any) => l.level === currentLevel + 1);
+  const nextLevel = hierarchy.drill_down_levels.find(
+    (l: GeographicLevel) => l.level === currentLevel + 1
+  );
   if (!nextLevel) return { toasts: [NO_FURTHER_LEVELS], nextLevel: null };
 
   const region = findRegion(ctx.regions, ctx.regionName);
@@ -207,6 +209,7 @@ function findConfiguredLayerRegion(nextLayer: MapLayer, regionName: string) {
 
 /** PINNED-BUGS: 'Detail "excluded by filter" toast unreachable — checks "!=", builder writes not_equals'. */
 function notConfiguredToast(ctx: DetailRegionClickContext): DetailDrillToast {
+  // any: ChartFilter.operator has no "not equals"/"!=" members (TS2367) — kept any, see Task 13 row 3
   const isFiltered = (ctx.chart.extra_config?.filters || []).some(
     (f: any) => (f.operator === 'not equals' || f.operator === '!=') && f.value === ctx.regionName
   );

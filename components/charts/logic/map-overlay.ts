@@ -1,4 +1,5 @@
 import { ChartTypes, type ChartBuilderFormData, type ChartMetric } from '@/types/charts';
+import type { ChartFilter, ChartPagination, ChartSort } from '@/types/charts';
 
 // ---------------------------------------------------------------------------
 // Request transform (moved verbatim from hooks/api/useChart.ts)
@@ -13,12 +14,12 @@ export interface MapDataOverlayRawPayload {
   // Legacy fields, used when `metric` isn't provided (charts saved before the metrics array existed).
   value_column?: string;
   aggregate_function?: string;
-  filters?: Record<string, any>;
-  dashboard_filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
+  dashboard_filters?: Record<string, unknown>;
   extra_config?: {
-    filters?: any[];
-    pagination?: any;
-    sort?: any[];
+    filters?: ChartFilter[];
+    pagination?: ChartPagination;
+    sort?: ChartSort[];
   };
 }
 

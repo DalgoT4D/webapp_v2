@@ -1,4 +1,4 @@
-import type { Chart, ChartDataPayload } from '@/types/charts';
+import type { Chart, ChartDataPayload, ChartDimension } from '@/types/charts';
 import { buildPivotDataFields } from '@/components/charts/chart-types/pivot-table/utils';
 import type { TableDrillDownState } from '@/components/charts/logic/payload';
 import {
@@ -12,7 +12,7 @@ function savedTableDimensions(chart: Chart, tableDrillDown: TableDrillDownState 
   const ec = chart.extra_config;
   if (!isTableDrillDownEnabled(ec?.dimensions)) {
     if (ec?.dimensions && ec.dimensions.length > 0) {
-      return ec.dimensions.map((d: any) => d.column).filter(Boolean);
+      return ec.dimensions.map((d: ChartDimension) => d.column).filter(Boolean);
     }
     if (ec?.dimension_columns && ec.dimension_columns.length > 0) return ec.dimension_columns;
     return [];
