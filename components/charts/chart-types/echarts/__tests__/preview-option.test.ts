@@ -10,8 +10,12 @@
 import { buildChartPreviewOption, type ChartPreviewOptionParams } from '../preview-option';
 
 type BuildOptions = ChartPreviewOptionParams;
+type ChartConfig = Parameters<typeof buildChartPreviewOption>[0];
 
-function buildOption(config: Record<string, any>, opts: BuildOptions): Record<string, any> {
+function buildOption(
+  config: ChartConfig,
+  opts: BuildOptions
+): ReturnType<typeof buildChartPreviewOption> {
   return buildChartPreviewOption(config, opts);
 }
 
@@ -58,7 +62,7 @@ function probe(value: unknown): unknown {
 }
 
 /** Records option + presence of keys that are explicitly set to undefined (lost by snapshots). */
-function characterize(config: Record<string, any>, opts: BuildOptions = {}) {
+function characterize(config: ChartConfig, opts: BuildOptions = {}) {
   const input = JSON.parse(JSON.stringify(config));
   const option = buildOption(input, {
     chartType: opts.chartType,
@@ -72,7 +76,7 @@ function characterize(config: Record<string, any>, opts: BuildOptions = {}) {
   };
 }
 
-const barConfig = (extra: Record<string, any> = {}) => ({
+const barConfig = (extra: ChartConfig = {}) => ({
   legend: { data: ['Sales', 'Cost'] },
   tooltip: { trigger: 'axis' },
   grid: { left: '3%' },
