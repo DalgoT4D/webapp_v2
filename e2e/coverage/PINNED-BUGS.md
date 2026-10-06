@@ -128,3 +128,39 @@ Severity: 🔴 user-visible broken feature · 🟠 wrong data/behavior · 🟡 c
 ## Unreachable UI (dead-code candidates for the refactor)
 
 31 interactive elements can't be reached in the app today (dead branches, props never passed, hard-coded values) — full list with file:line in [INTERACTIONS.md](INTERACTIONS.md) → "Untouched". Highlights: chart Y-axis selector (`ChartDataConfiguration.tsx:636`), table header sort (`onSort` never passed), table dimension-remove / drill-off confirmations (props never passed), dashboard list card + list view modes (`viewMode` hard-coded), dashboard filter date-picker footer buttons, share-modal legacy email section (`onShareViaEmail` never passed), map country select (hard-coded disabled), mobile "Edit Dashboard" (renders only at ≥1200px inside a header hidden at ≥1024px).
+
+## Crash risks on malformed backend data (audit 2026-10-06 — not yet covered by tests)
+
+Not pinned (no `[pinned]` test asserts them yet). A read-only audit of the refactored code found render-time throws when a backend response is missing a key, has `null`, or has an unexpected type. Today **every one of these replaces the whole app** with `app/global-error.tsx` ("Something went wrong!") — there is no route-level `error.tsx`, `components/error-boundary.tsx` is unused, and `PublicDashboardView.tsx` defines a boundary but never wraps anything with it. All existed before the refactor. Full evidence (file:line + expression): `.superpowers/sdd/crash-audit.md` (local).
+
+**Goal:** an error message is acceptable; a white screen is not.
+
+### Whole-page crashes (thrown above any widget — need a guard)
+
+| Sev | Trigger | Where | Likelihood |
+|---|---|---|---|
+| 🔴 | Dashboard `target_screen_size` is `"a4"` or any unknown value → `SCREEN_SIZES[x]` undefined → `.cols` throws | `dashboard-native-view.tsx` (`effectiveScreenConfig.cols`), `builder/useBuilderCanvasSize.ts`, `logic/editor-state.ts` | **High** — A4 was offered in the UI 2025-08-14 → 08-28; backend still accepts it |
+| 🔴 | Dashboard filter without `id` / `null` entry in `filters[]` → `filter.id.toString()` | `filters/filter-config.ts`, callers in the view + `widgets/view-widgets.tsx` | Medium (also listed under Dashboards) |
+| 🔴 | KPI with `metric: null` → `kpi.metric.name` | `widgets/kpi/kpi-selector-modal.tsx` | Medium (also listed under Dashboards) |
+| 🔴 | `layout_config` not an array / `null` tab | `view/DashboardViewGrid.tsx`, `view/useViewTabs.ts`, `tabs/tab-utils.ts` (builder normalizes with `Array.isArray`, the view doesn't) | Low–medium |
+| 🔴 | Report snapshot without `report_metadata` / `dashboard_data` | `app/reports/[snapshotId]/page.tsx`, `PublicReportView.tsx`, `print-layout.tsx` | Low |
+| 🟠 | Unparseable date string → date-fns `RangeError` | `components/reports/utils.ts`, `view/ViewHeaderFull.tsx`, `view/ViewHeaderCompact.tsx`, `charts/list/ChartListRow.tsx`, `dashboard/list/DashboardListRow.tsx`, `superset-dashboard-view.tsx` (outside its own boundary) | Low (a `null` `period_end` renders "Jan 1st, 1970" — see R-C3) |
+
+### Widget-level throws (one widget is broken, but today it takes the page)
+
+| Sev | Trigger | Where |
+|---|---|---|
+| 🔴 | Pivot response without `cells` / `metric_headers` (only `data` is checked) | `widgets/chart/ChartViewBody.tsx`, `widgets/chart/BuilderChartBody.tsx`, `charts/detail/ChartDetailBody.tsx` → `pivot-table/cellsToGrid.ts` (`ChartPreview.tsx` guards it correctly) |
+| 🟠 | `null` entry in `series` / `xAxis` / `yAxis` — option built in an effect before the `try` | `widgets/chart/useViewChartLifecycle.ts` |
+| 🟠 | Series with missing/unknown `type`; no `try` around builder `setOption` | `widgets/chart/useBuilderChartInstance.ts` |
+| 🟠 | Text / chart widget with `config: null` | `widgets/text/text-element-unified.tsx`, `lib/chart-title-utils.ts` |
+| 🟠 | KPI: `periods` not an array; numeric-string `current_value` + `decimalPlaces`; malformed `echarts_config` (no `try` around `setOption`) | `widgets/kpi/kpi-chart-element.tsx`, `lib/formatters.ts`, `kpis/kpi-card.tsx` |
+| 🟡 | Datetime filter default stored as a full ISO datetime | `datetime-filter-widget.tsx` |
+| 🟡 | Table `sort` not an array; `decimalPlaces` negative or > 100; column with `null` `data_type` in the metric picker; non-iterable `filters` on chart detail | `table/TableChart.tsx`, `table/table-cells.ts`, `logic/metric-columns.ts`, `logic/saved-chart-payload.ts` |
+
+### Plan (separate PR after the refactor)
+
+1. Route-level `error.tsx` for `app/charts`, `app/dashboards`, `app/reports`, `app/share`, `app/public` (retry + Sentry, no stack on public pages); delete the unused boundary in `PublicDashboardView.tsx`.
+2. A per-widget error boundary (`react-error-boundary` is already a dependency) around each dashboard view cell, builder cell and print-layout item → a bad chart/KPI shows an error card, the rest of the dashboard keeps working.
+3. Guards where the throw is above any widget: unknown screen size → desktop; skip filters without `id`; normalize layout/tabs in the view like the builder; one safe date helper (`—`); one shared pivot-shape check; move chart option building inside the existing `try`.
+4. One Playwright test per row: `page.route()` the endpoint, change one field, assert an error message instead of a white screen.
