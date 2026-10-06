@@ -1,0 +1,3706 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`ChartPreview option building (characterization) array vs object series/xAxis/yAxis array axes with names and rotation 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": [
+      {
+        "axisLabel": {
+          "interval": 0,
+          "margin": 15,
+          "overflow": "truncate",
+          "rotate": 30,
+          "width": 100,
+        },
+        "name": "Month",
+        "nameGap": 80,
+        "nameTextStyle": {
+          "color": "#374151",
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 14,
+        },
+        "type": "category",
+      },
+      {
+        "axisLabel": {
+          "interval": 0,
+          "margin": 15,
+          "overflow": "truncate",
+          "width": undefined,
+        },
+        "nameGap": 15,
+        "nameTextStyle": {
+          "color": "#374151",
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 14,
+        },
+        "type": "category",
+      },
+    ],
+    "yAxis": [
+      {
+        "axisLabel": {
+          "color": "red",
+          "margin": 15,
+        },
+        "name": "Amount",
+        "nameGap": 100,
+        "nameTextStyle": {
+          "color": "#374151",
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 14,
+        },
+        "type": "value",
+      },
+      {
+        "axisLabel": {
+          "margin": 15,
+        },
+        "nameGap": 15,
+        "nameTextStyle": {
+          "color": "#374151",
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 14,
+        },
+        "type": "value",
+      },
+    ],
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) array vs object series/xAxis/yAxis no series at all 1`] = `
+{
+  "keys": [
+    "grid",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "series": undefined,
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) array vs object series/xAxis/yAxis object series, no axes, no tooltip, no grid 1`] = `
+{
+  "keys": [
+    "grid",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "series": {
+      "data": [
+        1,
+        2,
+      ],
+      "label": {
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 12.5,
+        "fontWeight": "normal",
+      },
+      "name": "Sales",
+      "type": "bar",
+    },
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend bottom 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "20%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "bottom": "3%",
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend bottom with rotated x labels and all-legend display 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "22%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "bottom": "3%",
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "type": "plain",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "rotate": 45,
+        "width": 100,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+      ],
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend hidden (show: false) 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+      ],
+      "show": false,
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend left 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "18%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "3%",
+      "orient": "vertical",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend left with rotated x labels and all-legend display 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "18%",
+      "containLabel": true,
+      "left": "18%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "3%",
+      "orient": "vertical",
+      "show": true,
+      "top": "center",
+      "type": "plain",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "rotate": 45,
+        "width": 100,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+      ],
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend right 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend right with rotated x labels and all-legend display 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "18%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "plain",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "rotate": 45,
+        "width": 100,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+      ],
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend top 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "18%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "top": "3%",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels legend top with rotated x labels and all-legend display 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "18%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "18%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "top": "3%",
+      "type": "plain",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "rotate": 45,
+        "width": 100,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+      ],
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels missing legend 1`] = `
+{
+  "keys": [
+    "grid",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels number formatting on axes and data labels 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              undefined,
+              undefined,
+              "1,234.6",
+              [
+                1,
+                2,
+              ],
+              undefined,
+            ],
+          },
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              undefined,
+              undefined,
+              "1,234.6",
+              [
+                1,
+                2,
+              ],
+              undefined,
+            ],
+          },
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.6</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "15/01/2024<br/>*Sales: <b>1,234.6</b><br/>*Cost: <b>42.0</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "formatter": {
+          "__fn": [
+            "1234.5678",
+            "15/01/2024",
+            "[object Object]",
+            "[object Object]",
+            "[object Object],[object Object]",
+          ],
+        },
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "formatter": {
+          "__fn": [
+            "1,234.6",
+            "2024-01-15",
+            {
+              "dataIndex": 0,
+              "name": "2024-01-15",
+              "percent": 12.34,
+              "seriesName": "Sales",
+              "value": 1234.5678,
+            },
+            {
+              "dataIndex": 1,
+              "name": "Cat A",
+              "percent": 50,
+              "seriesName": "Sales",
+              "value": [
+                1,
+                2,
+              ],
+            },
+            [
+              {
+                "axisValue": "2024-01-15",
+                "marker": "*",
+                "name": "2024-01-15",
+                "seriesName": "Sales",
+                "value": 1234.5678,
+              },
+              {
+                "axisValue": "2024-01-15",
+                "marker": "*",
+                "name": "2024-01-15",
+                "seriesName": "Cost",
+                "value": 42,
+              },
+            ],
+          ],
+        },
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) bar charts: legend positions and rotated labels rotate: 0 counts as not rotated 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "rotate": 0,
+        "width": undefined,
+      },
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources chartType prop wins over series[0].type 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1,
+          2,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "type": "line",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources customizations from config.customizations 1`] = `
+{
+  "keys": [
+    "customizations",
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "customizations": {
+      "legendPosition": "left",
+    },
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "18%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "3%",
+      "orient": "vertical",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources customizations from config.extra_config.customizations 1`] = `
+{
+  "keys": [
+    "extra_config",
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "extra_config": {
+      "customizations": {
+        "legendPosition": "bottom",
+        "showDataLabels": true,
+        "stacked": true,
+      },
+    },
+    "grid": {
+      "bottom": "20%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "bottom": "3%",
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "show": false,
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "",
+              "",
+              "2,000.5",
+              "4,600.25",
+              "",
+            ],
+          },
+          "position": "top",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources legend position falling back to config.legend 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "18%",
+      "right": "6%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+      ],
+      "left": "3%",
+      "orient": "vertical",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources prop customizations win over config customizations 1`] = `
+{
+  "keys": [
+    "customizations",
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "customizations": {
+      "legendPosition": "left",
+    },
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) chart type resolution and customization sources unknown type detected from series (scatter) gets default treatment 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          [
+            1,
+            2,
+          ],
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "type": "scatter",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) line chart line with formatting and date axis 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1,
+          2,
+          3,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              undefined,
+              undefined,
+              "123456.78%",
+              [
+                1,
+                2,
+              ],
+              undefined,
+            ],
+          },
+        },
+        "name": "Sales",
+        "type": "line",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>123456.78%</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>123456.78%</b><br/>*Cost: <b>4200%</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "formatter": {
+          "__fn": [
+            "1234.5678",
+            "2024-01-15",
+            "[object Object]",
+            "[object Object]",
+            "[object Object],[object Object]",
+          ],
+        },
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "2024-01-01",
+        "2024-02-01",
+      ],
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "formatter": {
+          "__fn": [
+            "123456.78%",
+            "2024-01-15",
+            {
+              "dataIndex": 0,
+              "name": "2024-01-15",
+              "percent": 12.34,
+              "seriesName": "Sales",
+              "value": 1234.5678,
+            },
+            {
+              "dataIndex": 1,
+              "name": "Cat A",
+              "percent": 50,
+              "seriesName": "Sales",
+              "value": [
+                1,
+                2,
+              ],
+            },
+            [
+              {
+                "axisValue": "2024-01-15",
+                "marker": "*",
+                "name": "2024-01-15",
+                "seriesName": "Sales",
+                "value": 1234.5678,
+              },
+              {
+                "axisValue": "2024-01-15",
+                "marker": "*",
+                "name": "2024-01-15",
+                "seriesName": "Cost",
+                "value": 42,
+              },
+            ],
+          ],
+        },
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) number / gauge chart gauge detected from series[0].type 1`] = `
+{
+  "keys": [
+    "grid",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "series": [
+      {
+        "data": [
+          {
+            "name": "Total",
+            "value": 1234567.891,
+          },
+        ],
+        "detail": {
+          "fontSize": 30,
+          "formatter": {
+            "__fn": [
+              "1234.5678",
+              "",
+              "",
+              "",
+              "",
+            ],
+          },
+        },
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "type": "gauge",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) number / gauge chart number chartType with prefix/suffix 1`] = `
+{
+  "keys": [
+    "grid",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "series": [
+      {
+        "data": [
+          {
+            "name": "Total",
+            "value": 1234567.891,
+          },
+        ],
+        "detail": {
+          "fontSize": 30,
+          "formatter": {
+            "__fn": [
+              "$1.2K total",
+              "$ total",
+              "$ total",
+              "$ total",
+              "$ total",
+            ],
+          },
+        },
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+        },
+        "type": "gauge",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1.2K</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1.2K</b><br/>*Cost: <b>42.0</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) number / gauge chart number chartType with prefix/suffix 2`] = `
+[
+  [
+    "ChartPreview - Final config for pie/number chart:",
+    {
+      "gridValue": undefined,
+      "hasGrid": true,
+      "hasXAxis": true,
+      "hasYAxis": true,
+      "xAxisValue": undefined,
+      "yAxisValue": undefined,
+    },
+  ],
+]
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend bottom 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "bottom": "3%",
+      "data": [
+        "A",
+        "B",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "50%",
+          "42%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined
+undefined",
+              "undefined
+undefined",
+              "2024-01-15
+1,234.568",
+              "Cat A
+1,2",
+              "undefined
+undefined",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "65%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend bottom 2`] = `
+[
+  [
+    "ChartPreview - Final config for pie/number chart:",
+    {
+      "gridValue": undefined,
+      "hasGrid": true,
+      "hasXAxis": true,
+      "hasYAxis": true,
+      "xAxisValue": undefined,
+      "yAxisValue": undefined,
+    },
+  ],
+]
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend left 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "left": "3%",
+      "orient": "vertical",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "58%",
+          "50%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined
+undefined",
+              "undefined
+undefined",
+              "2024-01-15
+1,234.568",
+              "Cat A
+1,2",
+              "undefined
+undefined",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "60%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend left 2`] = `
+[
+  [
+    "ChartPreview - Final config for pie/number chart:",
+    {
+      "gridValue": undefined,
+      "hasGrid": true,
+      "hasXAxis": true,
+      "hasYAxis": true,
+      "xAxisValue": undefined,
+      "yAxisValue": undefined,
+    },
+  ],
+]
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend right 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "42%",
+          "50%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined
+undefined",
+              "undefined
+undefined",
+              "2024-01-15
+1,234.568",
+              "Cat A
+1,2",
+              "undefined
+undefined",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "60%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend right 2`] = `
+[
+  [
+    "ChartPreview - Final config for pie/number chart:",
+    {
+      "gridValue": undefined,
+      "hasGrid": true,
+      "hasXAxis": true,
+      "hasYAxis": true,
+      "xAxisValue": undefined,
+      "yAxisValue": undefined,
+    },
+  ],
+]
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend top 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "left": "center",
+      "orient": "horizontal",
+      "show": true,
+      "top": "3%",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "50%",
+          "55%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined
+undefined",
+              "undefined
+undefined",
+              "2024-01-15
+1,234.568",
+              "Cat A
+1,2",
+              "undefined
+undefined",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "65%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart donut with legend top 2`] = `
+[
+  [
+    "ChartPreview - Final config for pie/number chart:",
+    {
+      "gridValue": undefined,
+      "hasGrid": true,
+      "hasXAxis": true,
+      "hasYAxis": true,
+      "xAxisValue": undefined,
+      "yAxisValue": undefined,
+    },
+  ],
+]
+`;
+
+exports[`ChartPreview option building (characterization) pie chart pie detected from series[0].type (no chartType prop) 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "42%",
+          "50%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined%",
+              "undefined%",
+              "12.34%",
+              "50%",
+              "undefined%",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "60%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart pie with date labels and hidden data labels 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "formatter": {
+        "__fn": [
+          "1234.5678",
+          "15/01/2024",
+          "[object Object]",
+          "[object Object]",
+          "[object Object],[object Object]",
+        ],
+      },
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "42%",
+          "50%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined%",
+              "undefined%",
+              "12.34%",
+              "50%",
+              "undefined%",
+            ],
+          },
+          "position": "outside",
+          "show": false,
+        },
+        "radius": [
+          "40%",
+          "60%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) pie chart pie with object series (detected from series.type) 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": undefined,
+    "legend": {
+      "data": [
+        "A",
+        "B",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "center": [
+          "42%",
+          "50%",
+        ],
+        "data": [
+          {
+            "name": "A",
+            "value": 1234.5,
+          },
+          {
+            "name": "B",
+            "value": 99,
+          },
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "undefined%",
+              "undefined%",
+              "12.34%",
+              "50%",
+              "undefined%",
+            ],
+          },
+          "position": "outside",
+          "show": true,
+        },
+        "radius": [
+          "40%",
+          "60%",
+        ],
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "item",
+    },
+    "xAxis": undefined,
+    "yAxis": undefined,
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) stacked bar stacked via customizations with data labels 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          1200.5,
+          3400.25,
+          560,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "show": false,
+        },
+        "name": "Sales",
+        "type": "bar",
+      },
+      {
+        "data": [
+          800,
+          1200,
+          300,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 10.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "",
+              "",
+              "2,000.5",
+              "4,600.25",
+              "",
+            ],
+          },
+          "position": "top",
+          "show": true,
+        },
+        "name": "Cost",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
+
+exports[`ChartPreview option building (characterization) stacked bar stacked via series stack property 1`] = `
+{
+  "keys": [
+    "grid",
+    "legend",
+    "series",
+    "tooltip",
+    "xAxis",
+    "yAxis",
+  ],
+  "option": {
+    "grid": {
+      "bottom": "16%",
+      "containLabel": true,
+      "left": "10%",
+      "right": "15%",
+      "top": "10%",
+    },
+    "legend": {
+      "data": [
+        "Sales",
+        "Cost",
+      ],
+      "orient": "vertical",
+      "right": "3%",
+      "show": true,
+      "top": "center",
+      "type": "scroll",
+    },
+    "series": [
+      {
+        "data": [
+          10,
+          20,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "show": false,
+        },
+        "name": "Sales",
+        "stack": "total",
+        "type": "bar",
+      },
+      {
+        "data": [
+          5,
+          15,
+        ],
+        "label": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "fontSize": 12.5,
+          "fontWeight": "normal",
+          "formatter": {
+            "__fn": [
+              "",
+              "",
+              "15",
+              "35",
+              "",
+            ],
+          },
+          "position": "top",
+          "show": true,
+        },
+        "name": "Cost",
+        "stack": "total",
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgba(255, 255, 255, 0.95)",
+      "borderColor": "#e5e7eb",
+      "borderWidth": 1,
+      "extraCssText": "box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);",
+      "formatter": {
+        "__fn": [
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedundefined<br/>undefined: <b>undefined</b>",
+          "undefinedSales<br/><b>1,234.568</b>: 2024-01-15 (12.34%)",
+          "undefinedSales<br/><b>1,2</b>: Cat A (50%)",
+          "2024-01-15<br/>*Sales: <b>1,234.568</b><br/>*Cost: <b>42</b><br/>",
+        ],
+      },
+      "textStyle": {
+        "color": "#1f2937",
+        "fontSize": 12,
+      },
+      "trigger": "axis",
+    },
+    "xAxis": {
+      "axisLabel": {
+        "interval": 0,
+        "margin": 15,
+        "overflow": "truncate",
+        "width": undefined,
+      },
+      "data": [
+        "Jan",
+        "Feb",
+        "Mar",
+      ],
+      "name": "Month",
+      "nameGap": 80,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "margin": 15,
+      },
+      "name": "Amount",
+      "nameGap": 100,
+      "nameTextStyle": {
+        "color": "#374151",
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "fontSize": 14,
+      },
+      "type": "value",
+    },
+  },
+}
+`;
