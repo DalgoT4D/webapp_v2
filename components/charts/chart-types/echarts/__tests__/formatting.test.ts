@@ -196,9 +196,11 @@ describe('chart-formatting-utils', () => {
     });
 
     it('should handle single series object (not array)', () => {
-      const config = { series: { type: 'gauge', detail: {} } };
+      const config: Record<string, unknown> = { series: { type: 'gauge', detail: {} } };
       applyNumberChartFormatting(config, { numberFormat: 'international' });
-      const seriesArray = config.series as any[];
+      const seriesArray = config.series as Array<{
+        detail: { formatter: (value: number) => string };
+      }>;
       expect(Array.isArray(seriesArray)).toBe(true);
       expect(seriesArray[0].detail.formatter(1000)).toBe('1,000');
     });

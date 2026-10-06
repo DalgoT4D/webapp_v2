@@ -1,13 +1,13 @@
-import { useEffect, type MutableRefObject, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import type * as echarts from 'echarts';
 import { computeResponsiveMapOptions, type MapSize } from './map-option';
 
 interface MapContainerResizeOptions {
   chartRef: RefObject<HTMLDivElement | null>;
-  chartInstance: MutableRefObject<echarts.ECharts | null>;
-  containerSizeRef: MutableRefObject<MapSize>;
-  resizeTimeoutRef: MutableRefObject<NodeJS.Timeout | null>;
-  listenersAttachedRef: MutableRefObject<boolean>;
+  chartInstance: RefObject<echarts.ECharts | null>;
+  containerSizeRef: RefObject<MapSize>;
+  resizeTimeoutRef: RefObject<NodeJS.Timeout | null>;
+  listenersAttachedRef: RefObject<boolean>;
   safeCustomizations: Record<string, any>;
   isResizing: boolean;
 }

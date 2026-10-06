@@ -73,3 +73,5 @@ node_modules/
 /e2e/scripts/mutation/mutation-*.jsonl
 /e2e/scripts/mutation/mutation-*.log
 /e2e/scripts/mutation/__pycache__/
+
+.bruin.yml

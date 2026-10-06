@@ -1,11 +1,11 @@
-import { useEffect, type MutableRefObject, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { isPointInsideRect } from '@/components/dashboard/tabs/cross-tab-drag';
 import type { CrossTabDragSession } from '@/components/dashboard/hooks/useCrossTabDrag';
 
 interface HandoffPointerListenersOptions {
   phase: CrossTabDragSession['phase'] | undefined;
-  crossTabDragRef: MutableRefObject<CrossTabDragSession | null>;
-  autoscrollPointerYRef: MutableRefObject<number | null>;
+  crossTabDragRef: RefObject<CrossTabDragSession | null>;
+  autoscrollPointerYRef: RefObject<number | null>;
   canvasRef: RefObject<HTMLDivElement | null>;
   getTargetPosition: (
     session: CrossTabDragSession,

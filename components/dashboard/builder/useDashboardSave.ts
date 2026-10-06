@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type MutableRefObject } from 'react';
+import { useCallback, useState, type RefObject } from 'react';
 import { apiPut } from '@/lib/api';
 import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
@@ -25,7 +25,7 @@ export type { EditorSetState };
 
 interface DashboardSaveOptions {
   dashboardId: number | undefined;
-  stateRef: MutableRefObject<DashboardEditorState>;
+  stateRef: RefObject<DashboardEditorState>;
   setState: EditorSetState;
   title: string;
   description: string;

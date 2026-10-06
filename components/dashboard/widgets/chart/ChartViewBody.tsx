@@ -7,7 +7,7 @@ import PivotTableChart from '@/components/charts/chart-types/pivot-table/PivotTa
 import { getPivotRenderProps } from '@/components/charts/chart-types/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 import { TableChart } from '@/components/charts/chart-types/table/TableChart';
-import { MapPreview } from '@/components/charts/chart-types/map/MapPreview';
+import { MapPreview, type MapChartInstance } from '@/components/charts/chart-types/map/MapPreview';
 import type { ChartDimension } from '@/types/charts';
 import { cn } from '@/lib/utils';
 import { TableDrillBreadcrumb } from '@/components/dashboard/widgets/chart/TableDrillBreadcrumb';
@@ -32,7 +32,7 @@ interface ChartViewBodyProps {
   table: ReturnType<typeof useChartWidgetTable>;
   drill: ReturnType<typeof useMapDrillPath>;
   onRegionClick: (regionName: string) => void;
-  onMapChartReady: (chart: echarts.ECharts) => void;
+  onMapChartReady: (chart: MapChartInstance) => void;
 }
 
 /** The view widget's content: pivot, table (+ drill breadcrumb), map, or the ECharts div. */

@@ -10,6 +10,9 @@ import { buildMapChartOption } from './map-option';
 import { attachMapDomListeners } from './map-listeners';
 import { useMapContainerResize } from './useMapContainerResize';
 
+/** MapPreview builds its chart with the full `echarts` bundle, not tree-shaken `echarts/core`. */
+export type MapChartInstance = echarts.ECharts;
+
 interface DrillDownLevel {
   level: number;
   name: string;
@@ -42,7 +45,7 @@ interface MapPreviewProps {
   error?: any;
 
   // Event handlers
-  onChartReady?: (chart: echarts.ECharts) => void;
+  onChartReady?: (chart: MapChartInstance) => void;
   onRegionClick?: (regionName: string, regionData: unknown) => void;
   drillDownPath?: DrillDownLevel[];
   onDrillUp?: (level: number) => void;

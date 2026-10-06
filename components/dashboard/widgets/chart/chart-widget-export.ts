@@ -8,6 +8,7 @@ import { ChartExporter, generateFilename, type BrandingOptions } from '@/lib/cha
 import { ChartTypes, type Chart, type ChartDataPayload } from '@/types/charts';
 import type { FrozenChartConfig } from '@/types/reports';
 import type { PivotTableResponse } from '@/types/pivot-table';
+import type { MapChartInstance } from '@/components/charts/chart-types/map/MapPreview';
 
 export interface ChartWidgetExportOptions {
   chartId: number;
@@ -28,7 +29,7 @@ export interface ChartWidgetExportOptions {
   orgLogoUrl?: string | null;
   tableRef: RefObject<HTMLDivElement | null>;
   chartInstance: RefObject<ECharts | null>;
-  mapChartInstance: RefObject<ECharts | null>;
+  mapChartInstance: RefObject<MapChartInstance | null>;
 }
 
 /** PNG and CSV export of a dashboard chart widget (view). */

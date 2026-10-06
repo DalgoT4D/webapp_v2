@@ -193,7 +193,10 @@ export function ChartDataConfiguration({
       {timeGrainColumn && (
         <TimeGrainSelector
           value={formData.time_grain || null}
-          onChange={(value) => onChange({ time_grain: value })}
+          // The selector only emits its own time-grain option values, but types them as strings.
+          onChange={(value) =>
+            onChange({ time_grain: value as ChartBuilderFormData['time_grain'] })
+          }
           disabled={disabled}
           columnDataType={timeGrainColumn.data_type}
         />

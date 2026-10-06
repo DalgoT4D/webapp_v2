@@ -9,13 +9,14 @@ import {
   DateFormatSection,
   DATE_FORMAT_OPTIONS,
 } from '@/components/charts/styling/DateFormatSection';
+import type { DateFormat } from '@/lib/formatters';
 
 describe('DateFormatSection', () => {
   const mockOnDateFormatChange = jest.fn();
 
   const defaultProps = {
     idPrefix: 'table-date-column1',
-    dateFormat: undefined,
+    dateFormat: undefined as DateFormat | undefined,
     onDateFormatChange: mockOnDateFormatChange,
     disabled: false,
   };

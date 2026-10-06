@@ -40,7 +40,7 @@ export function getLegendConfig(
 
   const baseConfig: LegendConfig = {
     ...baseLegend,
-    show: baseLegend?.show !== false,
+    show: true, // hidden legends returned early above
     type: isPaginated ? 'scroll' : 'plain',
   };
 

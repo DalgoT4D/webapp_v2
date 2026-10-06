@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  type Dispatch,
-  type MutableRefObject,
-  type RefObject,
-  type SetStateAction,
-} from 'react';
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import * as echarts from 'echarts/core';
 import { buildChartWidgetOption } from '@/components/dashboard/widgets/chart/logic/chart-widget-option';
 import type { BuilderChartData } from '@/components/dashboard/widgets/chart/useBuilderChartData';
@@ -30,9 +24,9 @@ interface BuilderChartInstanceOptions
   > {
   chartId: number;
   chartRef: RefObject<HTMLDivElement | null>;
-  chartInstance: MutableRefObject<echarts.ECharts | null>;
-  resizeTimeoutRef: MutableRefObject<NodeJS.Timeout | null>;
-  isResizingRef: MutableRefObject<boolean | undefined>;
+  chartInstance: RefObject<echarts.ECharts | null>;
+  resizeTimeoutRef: RefObject<NodeJS.Timeout | null>;
+  isResizingRef: RefObject<boolean | undefined>;
   isResizing: boolean | undefined;
   drillDownPath: ReturnType<typeof useMapDrillPath>['drillDownPath'];
   containerSize: ContainerSize;

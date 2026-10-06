@@ -38,6 +38,8 @@ export interface Dashboard {
   // Public view fields
   org_name?: string;
   org_logo_url?: string;
+  // Per-resource access for the current user (grants + org floor + ownership)
+  access_level?: 'view' | 'edit';
 }
 
 export interface DashboardFilter {

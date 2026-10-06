@@ -71,7 +71,6 @@ export function ListPagination({
               Show
             </span>
             <Select
-              id={idFor('page-size-select')}
               value={pageSize.toString()}
               onValueChange={(value) => {
                 onPageSizeChange(parseInt(value));

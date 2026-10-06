@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, type MutableRefObject } from 'react';
+import { useCallback, type RefObject } from 'react';
 import type { DashboardTab } from '@/types/dashboard';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -15,7 +15,7 @@ import type { EditorSetState } from './useDashboardSave';
 
 interface BuilderTabsOptions {
   dashboardId: number | undefined;
-  stateRef: MutableRefObject<DashboardEditorState>;
+  stateRef: RefObject<DashboardEditorState>;
   setState: EditorSetState;
   setStateWithoutHistory: EditorSetState;
   flushActiveRichText: () => DashboardEditorState;

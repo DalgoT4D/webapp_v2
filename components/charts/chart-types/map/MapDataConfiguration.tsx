@@ -235,7 +235,10 @@ export function MapDataConfiguration({
       {/* Chart Type Selector - without duplicate title */}
       <ChartTypeSelector
         value={formData.chart_type}
-        onChange={(chart_type) => onFormDataChange({ chart_type })}
+        // The selector only emits registry chart-type ids, but types them as plain strings.
+        onChange={(chart_type) =>
+          onFormDataChange({ chart_type: chart_type as ChartBuilderFormData['chart_type'] })
+        }
         disabled={disabled}
       />
 

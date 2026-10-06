@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type MutableRefObject } from 'react';
+import { useCallback, useState, type RefObject } from 'react';
 import type { DashboardLayoutItem } from '@/types/dashboard';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import {
@@ -20,9 +20,9 @@ function advanceWalkthroughAfterResize() {
 }
 
 interface GridCommitsOptions {
-  stateRef: MutableRefObject<DashboardEditorState>;
+  stateRef: RefObject<DashboardEditorState>;
   setState: EditorSetState;
-  isUndoRedoOperationRef: MutableRefObject<boolean>;
+  isUndoRedoOperationRef: RefObject<boolean>;
 }
 
 /**

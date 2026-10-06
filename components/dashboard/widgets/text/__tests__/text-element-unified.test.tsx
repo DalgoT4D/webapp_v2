@@ -7,6 +7,7 @@ import {
   DASHBOARD_RICH_TEXT_FLUSH_EVENT,
   DASHBOARD_WIDGET_DRAG_START_EVENT,
   UnifiedTextElement,
+  type RichTextFlushEventDetail,
   type UnifiedTextConfig,
 } from '../text-element-unified';
 
@@ -57,12 +58,12 @@ describe('UnifiedTextElement', () => {
   beforeAll(() => {
     // ProseMirror asks the active DOM range for geometry when it scrolls a
     // changed selection into view. JSDOM does not implement those methods.
-    Range.prototype.getClientRects = jest.fn(() => {
+    Range.prototype.getClientRects = jest.fn((): DOMRectList => {
       const rects: DOMRect[] = [];
       return Object.assign(rects, { item: (): DOMRect | null => null }) as unknown as DOMRectList;
     });
     Range.prototype.getBoundingClientRect = jest.fn(() => new DOMRect());
-    document.elementFromPoint = jest.fn(() => null);
+    document.elementFromPoint = jest.fn((): Element | null => null);
   });
 
   beforeEach(() => {
@@ -148,7 +149,7 @@ describe('UnifiedTextElement', () => {
     const editor = await screen.findByTestId('dashboard-rich-text-editor');
     await activateEditor(editor);
     await user.type(editor, ' keyboard edit', { skipClick: true });
-    const detail = { updates: [] };
+    const detail: RichTextFlushEventDetail = { updates: [] };
 
     act(() => {
       document.dispatchEvent(new CustomEvent(DASHBOARD_RICH_TEXT_FLUSH_EVENT, { detail }));

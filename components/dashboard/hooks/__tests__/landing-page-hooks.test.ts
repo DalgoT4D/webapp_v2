@@ -21,9 +21,13 @@ jest.mock('@/stores/authStore', () => ({
 
 const calls: string[] = [];
 const mockLanding = {
-  setPersonalLanding: jest.fn(async (id: number) => void calls.push(`setPersonal:${id}`)),
-  removePersonalLanding: jest.fn(async () => void calls.push('removePersonal')),
-  setOrgDefault: jest.fn(async (id: number) => void calls.push(`setOrgDefault:${id}`)),
+  setPersonalLanding: jest.fn(
+    async (id: number): Promise<void> => void calls.push(`setPersonal:${id}`)
+  ),
+  removePersonalLanding: jest.fn(async (): Promise<void> => void calls.push('removePersonal')),
+  setOrgDefault: jest.fn(
+    async (id: number): Promise<void> => void calls.push(`setOrgDefault:${id}`)
+  ),
   isLoading: false,
 };
 jest.mock('@/hooks/api/useLandingPage', () => ({ useLandingPage: () => mockLanding }));
@@ -63,7 +67,7 @@ describe('useCurrentOrgUser', () => {
 
 describe('useLandingPageActions', () => {
   it('runs the action, re-fetches the current user, then calls onLandingChanged', async () => {
-    const onLandingChanged = jest.fn(() => void calls.push('changed'));
+    const onLandingChanged = jest.fn((): void => void calls.push('changed'));
     const { result } = renderHook(() => useLandingPageActions(onLandingChanged));
     await act(() => result.current.setMyLanding(5));
     await act(() => result.current.removeMyLanding());

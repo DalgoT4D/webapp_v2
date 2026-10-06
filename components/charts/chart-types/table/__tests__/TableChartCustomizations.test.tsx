@@ -2,33 +2,35 @@
  * TableChartCustomizations Component Tests
  */
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
+import type { SensorDescriptor, SensorOptions } from '@dnd-kit/core';
+import type { Transform } from '@dnd-kit/utilities';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TableChartCustomizations } from '@/components/charts/chart-types/table/TableChartCustomizations';
 
 // Mock @dnd-kit to avoid drag-and-drop complexity in tests
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => <div>{children}</div>,
+  DndContext: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   closestCenter: jest.fn(),
   KeyboardSensor: jest.fn(),
   PointerSensor: jest.fn(),
   useSensor: jest.fn(),
-  useSensors: jest.fn(() => []),
+  useSensors: jest.fn((): SensorDescriptor<SensorOptions>[] => []),
 }));
 
 jest.mock('@dnd-kit/sortable', () => ({
-  SortableContext: ({ children }: any) => <div>{children}</div>,
+  SortableContext: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   verticalListSortingStrategy: jest.fn(),
   useSortable: jest.fn(() => ({
     attributes: {},
     listeners: {},
     setNodeRef: jest.fn(),
-    transform: null,
-    transition: null,
+    transform: null as Transform | null,
+    transition: null as string | null,
     isDragging: false,
   })),
-  arrayMove: jest.fn((arr: any[], from: number, to: number) => {
+  arrayMove: jest.fn((arr: unknown[], from: number, to: number) => {
     const newArr = [...arr];
     const [removed] = newArr.splice(from, 1);
     newArr.splice(to, 0, removed);

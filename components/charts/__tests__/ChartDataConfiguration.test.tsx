@@ -254,7 +254,7 @@ describe('ChartDataConfiguration', () => {
             column_expression: 'avg(pop)',
             alias: 'Avg Pop',
           },
-        ],
+        ] as ChartMetric[],
       };
 
       render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
@@ -303,7 +303,7 @@ describe('ChartDataConfiguration', () => {
         geographic_column: 'state_name',
         metrics: [{ column: null, aggregation: 'count', alias: 'Total Count' }],
       });
-      const formData = { ...baseFormData, metrics: [] };
+      const formData = { ...baseFormData, metrics: [] as ChartMetric[] };
 
       render(<ChartDataConfiguration formData={formData} onChange={mockOnChange} />);
       await user.click(screen.getByTestId('change-to-map'));
@@ -464,8 +464,8 @@ describe('ChartDataConfiguration', () => {
     it('should handle various undefined/null scenarios', () => {
       const formData = {
         chart_type: 'bar' as const,
-        schema_name: undefined,
-        table_name: undefined,
+        schema_name: undefined as string | undefined,
+        table_name: undefined as string | undefined,
       };
       render(<ChartDataConfiguration formData={formData as any} onChange={mockOnChange} />);
       expect(screen.getByTestId('chart-type-selector')).toBeInTheDocument();

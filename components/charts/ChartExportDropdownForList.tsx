@@ -55,7 +55,7 @@ export function ChartExportDropdownForList({
         await handleTableCSVExport(chartId, chartTitle, exportOptions);
       } else if (chartType === 'map') {
         // Handle map export with geojson fetching
-        const mapChartInstance = await MapExportHandler.exportMapChart(chartId, chartTitle, format);
+        const mapChartInstance = await MapExportHandler.exportMapChart(chartId, chartTitle);
 
         try {
           // Export the map using the temporary instance

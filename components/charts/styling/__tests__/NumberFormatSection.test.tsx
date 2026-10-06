@@ -9,6 +9,7 @@ import {
   NumberFormatSection,
   NUMBER_FORMAT_OPTIONS,
 } from '@/components/charts/styling/NumberFormatSection';
+import type { NumberFormat } from '@/lib/formatters';
 
 describe('NumberFormatSection', () => {
   const mockOnNumberFormatChange = jest.fn();
@@ -16,8 +17,8 @@ describe('NumberFormatSection', () => {
 
   const defaultProps = {
     idPrefix: 'yAxis',
-    numberFormat: undefined,
-    decimalPlaces: undefined,
+    numberFormat: undefined as NumberFormat | undefined,
+    decimalPlaces: undefined as number | undefined,
     onNumberFormatChange: mockOnNumberFormatChange,
     onDecimalPlacesChange: mockOnDecimalPlacesChange,
     disabled: false,

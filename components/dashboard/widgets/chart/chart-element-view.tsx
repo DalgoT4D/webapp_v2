@@ -49,6 +49,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { CommentStates } from '@/types/comments';
+import type { MapChartInstance } from '@/components/charts/chart-types/map/MapPreview';
 
 // Register necessary ECharts components
 echarts.use([
@@ -120,7 +121,7 @@ export function ChartElementView({
   const tableRef = useRef<HTMLDivElement>(null); // Separate ref for table charts
   const wrapperRef = useRef<HTMLDivElement>(null); // Wrapper ref for fullscreen (stable element)
   const chartInstance = useRef<echarts.ECharts | null>(null);
-  const mapChartInstance = useRef<echarts.ECharts | null>(null); // Separate ref for map charts
+  const mapChartInstance = useRef<MapChartInstance | null>(null); // Separate ref for map charts
   const { drillDownPath, setDrillDownPath, handleDrillUp, handleDrillHome } = useMapDrillPath();
 
   // Container size for responsive legend
@@ -256,7 +257,7 @@ export function ChartElementView({
   };
 
   // Handle map chart ready callback to capture the ECharts instance
-  const handleMapChartReady = (chart: echarts.ECharts) => {
+  const handleMapChartReady = (chart: MapChartInstance) => {
     mapChartInstance.current = chart;
   };
 

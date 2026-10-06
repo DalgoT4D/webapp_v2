@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type MutableRefObject,
-  type RefObject,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { DashboardComponentType, DashboardLayoutItem } from '@/types/dashboard';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
@@ -48,7 +41,7 @@ export interface CrossTabDragSession {
 
 export interface UseCrossTabDragOptions {
   dashboardId: number | undefined;
-  stateRef: MutableRefObject<DashboardEditorState>;
+  stateRef: RefObject<DashboardEditorState>;
   setState: EditorSetState;
   canvasRef: RefObject<HTMLDivElement | null>;
   dashboardContainerRef: RefObject<HTMLDivElement | null>;

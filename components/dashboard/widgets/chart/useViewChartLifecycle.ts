@@ -1,16 +1,11 @@
-import {
-  useEffect,
-  type Dispatch,
-  type MutableRefObject,
-  type RefObject,
-  type SetStateAction,
-} from 'react';
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import * as echarts from 'echarts/core';
 import { buildChartWidgetOption } from '@/components/dashboard/widgets/chart/logic/chart-widget-option';
 import type { useChartViewData } from '@/components/dashboard/widgets/chart/useChartViewData';
 import type { useChartViewMetadata } from '@/components/dashboard/widgets/chart/useChartViewMetadata';
 import type { WidgetMapDrillLevel } from '@/components/dashboard/widgets/chart/logic/chart-widget-map';
 import type { FrozenChartConfig } from '@/types/reports';
+import type { MapChartInstance } from '@/components/charts/chart-types/map/MapPreview';
 
 type ViewData = ReturnType<typeof useChartViewData>;
 type ContainerSize = { width: number; height: number };
@@ -18,9 +13,9 @@ type ContainerSize = { width: number; height: number };
 interface ViewChartLifecycleOptions {
   chartId: number;
   chartRef: RefObject<HTMLDivElement | null>;
-  chartInstance: MutableRefObject<echarts.ECharts | null>;
-  mapChartInstance: MutableRefObject<echarts.ECharts | null>;
-  previousFilterHash: MutableRefObject<string>;
+  chartInstance: RefObject<echarts.ECharts | null>;
+  mapChartInstance: RefObject<MapChartInstance | null>;
+  previousFilterHash: RefObject<string>;
   filterHash: ViewData['filterHash'];
   chartData: ViewData['chartData'];
   mapDataOverlay: ViewData['mapDataOverlay'];

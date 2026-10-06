@@ -43,7 +43,7 @@ export function useViewContainerWidth(dashboardContainerRef: RefObject<HTMLDivEl
 
   // Observe dashboard container for responsive width
   useEffect(() => {
-    if (!dashboardContainerRef.current) return;
+    if (!dashboardContainerRef.current) return undefined;
 
     // Set initial width
     const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;

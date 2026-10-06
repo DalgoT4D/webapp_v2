@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import type { RefObject } from 'react';
 import type * as echarts from 'echarts';
 
 /**
@@ -7,7 +7,7 @@ import type * as echarts from 'echarts';
  */
 export function attachMapDomListeners(
   chartDom: HTMLDivElement,
-  chartInstance: MutableRefObject<echarts.ECharts | null>,
+  chartInstance: RefObject<echarts.ECharts | null>,
   onRegionClick: ((regionName: string, regionData: unknown) => void) | undefined
 ) {
   // Disable default pinch zoom behaviors

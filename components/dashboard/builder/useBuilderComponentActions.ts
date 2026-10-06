@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MutableRefObject } from 'react';
+import { useCallback, useRef, type RefObject } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
 import {
@@ -17,7 +17,7 @@ interface BuilderComponentActionsOptions {
   activeLayout: ActiveLayout;
   activeComponents: ActiveComponents;
   setState: EditorSetState;
-  isDraggingRef: MutableRefObject<boolean>;
+  isDraggingRef: RefObject<boolean>;
 }
 
 /** Remove / update a widget on the active tab, as stable callbacks so the memoized cells don't re-render. */
