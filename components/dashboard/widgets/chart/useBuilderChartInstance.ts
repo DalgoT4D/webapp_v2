@@ -1,6 +1,6 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import * as echarts from 'echarts/core';
-import { buildChartWidgetOption } from '@/components/dashboard/widgets/chart/logic/chart-widget-option';
+import { buildChartWidgetOption } from '@/components/charts/chart-types/echarts/widget-option';
 import type { BuilderChartData } from '@/components/dashboard/widgets/chart/useBuilderChartData';
 import type { useMapDrillPath } from '@/components/dashboard/widgets/chart/useMapDrillPath';
 

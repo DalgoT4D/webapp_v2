@@ -1,4 +1,4 @@
-import { buildChartWidgetOption } from '@/components/dashboard/widgets/chart/logic/chart-widget-option';
+import { buildChartWidgetOption } from '@/components/charts/chart-types/echarts/widget-option';
 
 const lineConfig = () => ({
   title: { text: 'T' },

@@ -1,6 +1,6 @@
 import type { Region } from '@/hooks/api/useChart';
 import { ChartTypes, type Chart } from '@/types/charts';
-import type { ChartWidgetVariant } from './chart-widget-option';
+import type { ChartWidgetVariant } from '@/components/charts/chart-types/echarts/widget-option';
 
 /** Flattens every parent selection on the drill path into column → value (the chart builders' rule). */
 export { collectDrillFilters } from '@/components/charts/logic/map-overlay';
