@@ -1,45 +1,18 @@
 /**
  * Characterization tests for the ECharts option that ChartPreview hands to setOption.
  *
- * Snapshots were recorded against the inline option-building logic that used to live in
- * ChartPreview's initializeChart; they pin the exact output (including what every formatter
+ * Snapshots were recorded (via a since-removed render harness capturing setOption's first
+ * argument) against the inline option-building logic that used to live in ChartPreview's
+ * initializeChart, before it was extracted to buildChartPreviewOption; they pin the exact output (including what every formatter
  * function returns for a fixed set of sample inputs) so the extraction is behavior-preserving.
  */
 
-// TEMPORARY HARNESS (removed once the logic is extracted): render ChartPreview with a mocked
-// echarts instance and capture the first argument passed to setOption.
-import React from 'react';
-import { render, cleanup } from '@testing-library/react';
-import * as echarts from 'echarts';
-import { ChartPreview } from '@/components/charts/ChartPreview';
+import { buildChartPreviewOption, type ChartPreviewOptionParams } from '../preview-option';
 
-jest.mock('echarts', () => ({
-  init: jest.fn(),
-}));
-
-interface BuildOptions {
-  chartType?: string;
-  customizations?: Record<string, any>;
-}
+type BuildOptions = ChartPreviewOptionParams;
 
 function buildOption(config: Record<string, any>, opts: BuildOptions): Record<string, any> {
-  const setOption = jest.fn();
-  (echarts.init as jest.Mock).mockReturnValue({
-    setOption,
-    dispose: jest.fn(),
-    resize: jest.fn(),
-  });
-  render(
-    React.createElement(ChartPreview, {
-      config,
-      chartType: opts.chartType,
-      customizations: opts.customizations,
-    })
-  );
-  cleanup();
-  expect(setOption).toHaveBeenCalledTimes(1);
-  expect(setOption.mock.calls[0][1]).toEqual({ notMerge: true });
-  return setOption.mock.calls[0][0];
+  return buildChartPreviewOption(config, opts);
 }
 
 // Sample inputs fed to every formatter function found in the option
