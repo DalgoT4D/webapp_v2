@@ -248,10 +248,10 @@ export const getNavItems = (
           visibleToRoles: ACCESS_PAGE_ROLES,
         },
         {
-          title: 'Warehouse',
-          href: '/settings/warehouse',
+          title: 'Data',
+          href: '/settings/data',
           icon: Database,
-          isActive: currentPath.startsWith('/settings/warehouse'),
+          isActive: currentPath.startsWith('/settings/data'),
           visibleToRoles: DATA_SECTION_ROLES,
         },
         ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup

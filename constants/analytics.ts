@@ -725,9 +725,9 @@ export const FEATURES = {
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
   SETTINGS_BRANDING: 'settings_branding',
   SETTINGS_COPILOT: 'settings_copilot',
-  // The warehouse moved out of the ingest page onto its own Settings route; without an
-  // entry here (and in PATHNAME_TO_FEATURE) that page fired no feature:viewed at all.
-  SETTINGS_WAREHOUSE: 'settings_warehouse',
+  // Data settings consolidates warehouse config + connection-level org preferences
+  // (e.g. auto-accept non-breaking schema changes) behind a tabbed page.
+  SETTINGS_DATA: 'settings_data',
   // Pre-auth free-trial screens. Three separate features (not one `free_trial`)
   // because useFeatureTracking dedupes on the FEATURE, not the pathname — a single
   // id would make the three screens indistinguishable and destroy the funnel.
@@ -762,7 +762,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
   { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
   { prefix: '/settings/copilot', feature: FEATURES.SETTINGS_COPILOT },
-  { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
+  { prefix: '/settings/data', feature: FEATURES.SETTINGS_DATA },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
   { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },
   { prefix: '/free-trial/progress', feature: FEATURES.FREE_TRIAL_PROGRESS },
