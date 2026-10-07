@@ -40,6 +40,12 @@ export function DependentFiltersConfigModal({
     }
   }, [open, currentGroupIds]);
 
+  const normalizeGroupIds = (ids: number[]) =>
+    ids.length === 1 ? [] : [...ids].sort((a, b) => a - b);
+  const hasChanges =
+    JSON.stringify(normalizeGroupIds(selectedIds)) !==
+    JSON.stringify(normalizeGroupIds(currentGroupIds));
+
   // The anchor table is whichever filter is checked first -- every other filter must
   // share its (schema_name, table_name) to be eligible for the group.
   const anchorFilter = filters.find((f) => selectedIds.includes(Number(f.id)));
@@ -76,7 +82,7 @@ export function DependentFiltersConfigModal({
     try {
       const result = await setDependentGroup(dashboardId, selectedIds);
       onSaved(result.dependent_group_filter_ids);
-      toastSuccess.updated('Dependent filters');
+      toastSuccess.generic('Dependent filters saved successfully');
       onClose();
       // Refresh dashboard data to keep the cache in sync
       const { mutate } = await import('swr');
@@ -150,7 +156,7 @@ export function DependentFiltersConfigModal({
           <Button
             variant="primary"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !hasChanges}
             data-testid="dependent-filters-save"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
