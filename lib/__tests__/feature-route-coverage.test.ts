@@ -38,7 +38,7 @@ describe('feature:viewed route coverage', () => {
   // /settings/access, not /settings/user-management: resource sharing moved that page, and
   // the feature name stayed SETTINGS_USER_MANAGEMENT so the metric keeps its history.
   it('keeps sibling settings routes distinct', () => {
-    expect(featureForPathname('/settings/branding')).toBe('settings_branding');
+    expect(featureForPathname('/settings/organization')).toBe('settings_organization');
     expect(featureForPathname('/settings/access')).toBe('settings_user_management');
   });
 });

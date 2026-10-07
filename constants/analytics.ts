@@ -723,8 +723,7 @@ export const FEATURES = {
   NOTIFICATIONS: 'notifications',
   SETTINGS_USER_MANAGEMENT: 'settings_user_management',
   SETTINGS_SUPERSET_USAGE: 'settings_superset_usage',
-  SETTINGS_BRANDING: 'settings_branding',
-  SETTINGS_COPILOT: 'settings_copilot',
+  SETTINGS_ORGANIZATION: 'settings_organization',
   // The warehouse moved out of the ingest page onto its own Settings route; without an
   // entry here (and in PATHNAME_TO_FEATURE) that page fired no feature:viewed at all.
   SETTINGS_WAREHOUSE: 'settings_warehouse',
@@ -760,8 +759,7 @@ export const PATHNAME_TO_FEATURE: ReadonlyArray<{ prefix: string; feature: Featu
   { prefix: '/notifications', feature: FEATURES.NOTIFICATIONS },
   { prefix: '/settings/access', feature: FEATURES.SETTINGS_USER_MANAGEMENT },
   { prefix: '/settings/about', feature: FEATURES.SETTINGS_ABOUT },
-  { prefix: '/settings/branding', feature: FEATURES.SETTINGS_BRANDING },
-  { prefix: '/settings/copilot', feature: FEATURES.SETTINGS_COPILOT },
+  { prefix: '/settings/organization', feature: FEATURES.SETTINGS_ORGANIZATION },
   { prefix: '/settings/warehouse', feature: FEATURES.SETTINGS_WAREHOUSE },
   { prefix: '/free-trial/activate', feature: FEATURES.FREE_TRIAL_ACTIVATE },
   { prefix: '/free-trial/consent', feature: FEATURES.FREE_TRIAL_CONSENT },

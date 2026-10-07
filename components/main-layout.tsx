@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Users,
   Target,
-  Palette,
+  Building2,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -217,7 +217,7 @@ export const getNavItems = (
       // Parent nav is clickable — route each role to a Settings child they can
       // actually reach. Admins land on Branding (the historical default);
       // Analysts don't have Branding, so land them on Access instead.
-      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/branding' : '/settings/access',
+      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/organization' : '/settings/access',
       icon: Settings,
       isActive: false,
       // Every Settings child requires Analyst+ or a role-gated feature flag —
@@ -227,17 +227,10 @@ export const getNavItems = (
       visibleToRoles: ACCESS_PAGE_ROLES,
       children: [
         {
-          title: 'Branding',
-          href: '/settings/branding',
-          icon: Palette,
-          isActive: currentPath.startsWith('/settings/branding'),
-          visibleToRoles: ADMIN_ROLES,
-        },
-        {
-          title: 'Copilot',
-          href: '/settings/copilot',
-          icon: CopilotIcon,
-          isActive: currentPath.startsWith('/settings/copilot'),
+          title: 'Organization',
+          href: '/settings/organization',
+          icon: Building2,
+          isActive: currentPath.startsWith('/settings/organization'),
           visibleToRoles: ADMIN_ROLES,
         },
         {
