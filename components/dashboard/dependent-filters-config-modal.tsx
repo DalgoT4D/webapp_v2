@@ -90,9 +90,9 @@ export function DependentFiltersConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Link filters</DialogTitle>
+          <DialogTitle>Linked filters</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Select the filters that should work together. When one filter changes, the available
