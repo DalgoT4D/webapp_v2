@@ -43,34 +43,24 @@ export default function ConnectionsTab() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-shrink-0 border-b bg-background">
-        <div className="p-6 pb-0 mb-6">
-          <h1 className="text-3xl font-bold">Connections</h1>
-          <p className="text-muted-foreground mt-1">
-            Org-wide settings that apply to every connection
+    <div className="max-w-3xl bg-white border rounded-lg p-6">
+      <div className="flex items-start justify-between gap-6">
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold">Auto-accept non-breaking schema changes</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Org-wide — applies to every connection.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            When a source adds a column or a new stream, Dalgo will apply the change automatically.
+            Breaking changes still require manual review.
           </p>
         </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-3xl bg-white border rounded-lg p-6">
-          <div className="flex items-start justify-between gap-6">
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold">Auto-accept non-breaking schema changes</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                When a source adds a column or a new stream, Dalgo will apply the change
-                automatically. Breaking changes still require manual review.
-              </p>
-            </div>
-            <Switch
-              checked={checked}
-              disabled={!canEdit || saving || isLoading}
-              onCheckedChange={onToggle}
-              data-testid="auto-accept-schema-changes-toggle"
-            />
-          </div>
-        </div>
+        <Switch
+          checked={checked}
+          disabled={!canEdit || saving || isLoading}
+          onCheckedChange={onToggle}
+          data-testid="auto-accept-schema-changes-toggle"
+        />
       </div>
     </div>
   );

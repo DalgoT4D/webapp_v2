@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Users,
   Target,
-  Building2,
+  Palette,
 } from 'lucide-react';
 import IngestIcon from '@/assets/icons/ingest';
 import TransformIcon from '@/assets/icons/transform';
@@ -217,7 +217,7 @@ export const getNavItems = (
       // Parent nav is clickable — route each role to a Settings child they can
       // actually reach. Admins land on Branding (the historical default);
       // Analysts don't have Branding, so land them on Access instead.
-      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/organization' : '/settings/access',
+      href: ADMIN_ROLES.includes(roleSlug as Role) ? '/settings/branding' : '/settings/access',
       icon: Settings,
       isActive: false,
       // Every Settings child requires Analyst+ or a role-gated feature flag —
@@ -227,10 +227,17 @@ export const getNavItems = (
       visibleToRoles: ACCESS_PAGE_ROLES,
       children: [
         {
-          title: 'Organization',
-          href: '/settings/organization',
-          icon: Building2,
-          isActive: currentPath.startsWith('/settings/organization'),
+          title: 'Branding',
+          href: '/settings/branding',
+          icon: Palette,
+          isActive: currentPath.startsWith('/settings/branding'),
+          visibleToRoles: ADMIN_ROLES,
+        },
+        {
+          title: 'Copilot',
+          href: '/settings/copilot',
+          icon: CopilotIcon,
+          isActive: currentPath.startsWith('/settings/copilot'),
           visibleToRoles: ADMIN_ROLES,
         },
         {
@@ -241,10 +248,10 @@ export const getNavItems = (
           visibleToRoles: ACCESS_PAGE_ROLES,
         },
         {
-          title: 'Warehouse',
-          href: '/settings/warehouse',
+          title: 'Data',
+          href: '/settings/data',
           icon: Database,
-          isActive: currentPath.startsWith('/settings/warehouse'),
+          isActive: currentPath.startsWith('/settings/data'),
           visibleToRoles: DATA_SECTION_ROLES,
         },
         ...(isFeatureFlagEnabled(FeatureFlagKeys.USAGE_DASHBOARD) && hasSupersetSetup
