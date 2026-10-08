@@ -20,7 +20,8 @@ export function useSources() {
   const { data, error, mutate, isLoading } = useSWR<Source[]>('/api/airbyte/sources', apiGet, {
     revalidateOnFocus: false,
   });
-  return { data: data || [], isLoading, isError: error, mutate };
+  // Array.isArray, not `|| []` — api.ts can resolve with an `{ error }` object.
+  return { data: Array.isArray(data) ? data : [], isLoading, isError: error, mutate };
 }
 
 /** Available source type definitions */
@@ -30,7 +31,7 @@ export function useSourceDefinitions() {
     apiGet,
     { revalidateOnFocus: false }
   );
-  return { data: data || [], isLoading, isError: error };
+  return { data: Array.isArray(data) ? data : [], isLoading, isError: error };
 }
 
 /** Raw API response wraps the spec in a connectionSpecification key */
