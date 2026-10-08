@@ -101,9 +101,8 @@ export function DependentFiltersConfigModal({
           <DialogTitle>Linked filters</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Select the filters that should work together. When one filter changes, the available
-          values in the others will update accordingly. You can link dropdown filters from one
-          table.
+          Select the filters that should work together. When you pick a value in one, the others
+          update to show only the options that still apply.
         </p>
         <ScrollArea className="max-h-80">
           <div className="space-y-4 py-2">
@@ -140,8 +139,8 @@ export function DependentFiltersConfigModal({
         </ScrollArea>
         <Alert variant="warning">
           <AlertDescription>
-            Date and number filters can&apos;t be linked. Selecting a filter from one table disables
-            filters from other tables.
+            You can only link dropdown filters, and they must all come from the same table. Date and
+            number filters can&apos;t be linked
           </AlertDescription>
         </Alert>
         <div className="flex justify-end gap-2 pt-2">
