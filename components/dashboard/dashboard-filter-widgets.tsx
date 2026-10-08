@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import type {
 } from '@/types/dashboard-filters';
 import { DashboardFilterType, NumericalFilterUIMode } from '@/types/dashboard-filters';
 import { DateTimeFilterWidget } from './datetime-filter-widget';
+import { buildFilterPreviewUrl } from '@/lib/dashboard-filter-utils';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
 
@@ -59,23 +60,20 @@ function ValueFilterWidget({
     }
   }, [value, selectedValues, filter.id]);
 
-  // Narrows this filter's options by every other dependent-group member's current value.
-  // Sent as an already-JSON-encoded string (not recomputed here) so its identity is
-  // stable by value across renders, same as everything else feeding this URL.
-  const constraintsQuerySuffix =
-    groupNarrowingConstraintsJson && groupNarrowingConstraintsJson !== '[]'
-      ? `&constraints=${encodeURIComponent(groupNarrowingConstraintsJson)}`
-      : '';
+  // Narrowed means this filter is currently restricted by another dependent-group member's
+  // current value -- used below to gate the auto-drop effect.
+  const isNarrowed = !!(groupNarrowingConstraintsJson && groupNarrowingConstraintsJson !== '[]');
 
-  // Build API URL based on public mode
-  const apiUrl =
-    filter.schema_name && filter.table_name && filter.column_name
-      ? isPublicMode && publicToken
-        ? isReportMode
-          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100${constraintsQuerySuffix}`
-          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100${constraintsQuerySuffix}`
-        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100${constraintsQuerySuffix}`
-      : null;
+  const apiUrl = buildFilterPreviewUrl({
+    schemaName: filter.schema_name,
+    tableName: filter.table_name,
+    columnName: filter.column_name,
+    filterType: 'value',
+    isPublicMode,
+    publicToken,
+    isReportMode,
+    constraintsJson: groupNarrowingConstraintsJson,
+  });
 
   // Custom fetcher for public mode with better error handling
   const fetcher = isPublicMode
@@ -120,13 +118,20 @@ function ValueFilterWidget({
   }
 
   // Use dynamically fetched options
-  const availableOptions = filterOptions?.options || [];
+  const availableOptions: FilterOption[] = useMemo(
+    () => filterOptions?.options || [],
+    [filterOptions]
+  );
+  const comboboxItems = useMemo(
+    () => availableOptions.map((opt) => ({ value: opt.value, label: opt.label })),
+    [availableOptions]
+  );
 
   // Auto-drop: if this filter is currently narrowed by another dependent-group member,
   // and its own selection no longer appears in the narrowed list, clear it. Runs the same
   // way for every group member -- there's no designated "child" in the group model.
   useEffect(() => {
-    if (!constraintsQuerySuffix) return; // not narrowed right now -- nothing to drop
+    if (!isNarrowed) return; // not narrowed right now -- nothing to drop
     if (filterOptionsLoading || filterOptionsError) return;
     if (selectedValues.length === 0) return;
 
@@ -146,7 +151,7 @@ function ValueFilterWidget({
     // Deliberately re-checks only when narrowing/options change, not on every selectedValues
     // update (the effect itself is what changes selectedValues on a drop).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableOptions, filterOptionsLoading, filterOptionsError, constraintsQuerySuffix]);
+  }, [availableOptions, filterOptionsLoading, filterOptionsError, isNarrowed]);
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
     if (!optionValue) return; // Guard against invalid option values
@@ -251,10 +256,7 @@ function ValueFilterWidget({
         ) : valueFilter.settings?.can_select_multiple ? (
           <Combobox
             mode="multi"
-            items={availableOptions.map((opt: FilterOption) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
+            items={comboboxItems}
             values={selectedValues}
             onValuesChange={(newValues) => {
               setSelectedValues(newValues);
@@ -267,10 +269,7 @@ function ValueFilterWidget({
           />
         ) : (
           <Combobox
-            items={availableOptions.map((opt: FilterOption) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
+            items={comboboxItems}
             value={selectedValues[0] || ''}
             onValueChange={(val) => {
               const newSelection = val ? [val] : [];
@@ -310,15 +309,15 @@ function NumericalFilterWidget({
   // Default ui_mode to SLIDER if not specified
   const uiMode = numericalFilter.settings.ui_mode || NumericalFilterUIMode.SLIDER;
 
-  // Build API URL based on public mode for numerical stats
-  const numericalApiUrl =
-    filter.schema_name && filter.table_name && filter.column_name
-      ? isPublicMode && publicToken
-        ? isReportMode
-          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-      : null;
+  const numericalApiUrl = buildFilterPreviewUrl({
+    schemaName: filter.schema_name,
+    tableName: filter.table_name,
+    columnName: filter.column_name,
+    filterType: 'numerical',
+    isPublicMode,
+    publicToken,
+    isReportMode,
+  });
 
   // Custom fetcher for numerical filter in public mode
   const numericalFetcher = isPublicMode

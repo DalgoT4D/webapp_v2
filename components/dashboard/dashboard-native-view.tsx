@@ -96,6 +96,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { EMPTY_DEPENDENT_GROUP_FILTER_IDS } from '@/constants/dashboard-filters';
 import { getChartViewUrl, getKpiViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import {
   markDashboardShared,
@@ -116,10 +117,6 @@ const SHARE_DIALOG_COACHMARK_STAGES: WalkthroughStage[] = [
 
 /** Stages the share dialog can be opened FROM — either routes on into the dialog's own steps. */
 const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle'];
-
-// Stable reference so passing "no dependent group" doesn't recreate a fresh array every
-// render -- same reasoning as dashboard-builder-v2.tsx's identical constant.
-const EMPTY_DEPENDENT_GROUP_FILTER_IDS: number[] = [];
 
 /**
  * Every stage from which copying the public link is the walkthrough's final act. Not just

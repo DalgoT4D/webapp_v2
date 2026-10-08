@@ -8,6 +8,7 @@ import type {
   NumericalFilterSettings,
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+import { FILTER_OPTIONS_LIMIT } from '@/constants/dashboard-filters';
 
 // Appended to date-only strings so a "less_than_equal" comparison includes the full end day
 // e.g. "2025-03-19" + END_OF_DAY_TIME → "2025-03-19T23:59:59"
@@ -291,4 +292,51 @@ export function getGroupNarrowingInfo(
   }
 
   return constraints;
+}
+
+export interface FilterPreviewUrlParams {
+  schemaName?: string;
+  tableName?: string;
+  columnName?: string;
+  filterType: 'value' | 'numerical' | 'datetime';
+  isPublicMode?: boolean;
+  publicToken?: string;
+  isReportMode?: boolean;
+  /** Already-JSON-encoded GroupNarrowingConstraint[] for dependent-group narrowing. */
+  constraintsJson?: string;
+}
+
+/** Authenticated, public-dashboard or public-report preview URL. Null = no column bound. */
+export function buildFilterPreviewUrl({
+  schemaName,
+  tableName,
+  columnName,
+  filterType,
+  isPublicMode = false,
+  publicToken,
+  isReportMode = false,
+  constraintsJson,
+}: FilterPreviewUrlParams): string | null {
+  if (!schemaName || !tableName || !columnName) return null;
+
+  const basePath =
+    isPublicMode && publicToken
+      ? isReportMode
+        ? `/api/v1/public/reports/${publicToken}/filters/preview/`
+        : `/api/v1/public/dashboards/${publicToken}/filters/preview/`
+      : '/api/filters/preview/';
+
+  const params = new URLSearchParams({
+    schema_name: schemaName,
+    table_name: tableName,
+    column_name: columnName,
+    filter_type: filterType,
+    limit: String(FILTER_OPTIONS_LIMIT),
+  });
+
+  if (constraintsJson && constraintsJson !== '[]') {
+    params.set('constraints', constraintsJson);
+  }
+
+  return `${basePath}?${params.toString()}`;
 }

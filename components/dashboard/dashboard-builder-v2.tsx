@@ -84,6 +84,7 @@ import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
+import { EMPTY_DEPENDENT_GROUP_FILTER_IDS } from '@/constants/dashboard-filters';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -114,10 +115,6 @@ const AUTOSCROLL_MAX_SPEED_PX = 30;
 const CROSS_TAB_HOVER_DELAY_MS = 500;
 const GRID_MARGIN = 8;
 const GRID_PADDING = 8;
-
-// Stable reference for a "no dependent group yet" fallback -- a fresh `[]` literal on
-// every render would change identity each time, re-triggering effects that depend on it.
-const EMPTY_DEPENDENT_GROUP_FILTER_IDS: number[] = [];
 
 // Max length for the dashboard description (keeps the header compact).
 const DESCRIPTION_MAX_LENGTH = 100;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { FilterElement } from './filter-element';
 import type { DashboardFilterConfig, AppliedFilters } from '@/types/dashboard-filters';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/dashboard-filter-utils';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_FILTER_CONTEXTS } from '@/constants/analytics';
+import { EMPTY_DEPENDENT_GROUP_FILTER_IDS } from '@/constants/dashboard-filters';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -47,10 +48,6 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-// Stable reference for callers that don't pass dependentGroupFilterIds -- a fresh `[]`
-// default would be a new array on every render, re-triggering the sync effect below.
-const EMPTY_DEPENDENT_GROUP_FILTER_IDS: number[] = [];
 
 interface UnifiedFiltersPanelProps {
   initialFilters: DashboardFilterConfig[];
@@ -460,6 +457,21 @@ export function UnifiedFiltersPanel({
   // For horizontal layout, we keep horizontal behavior
   const effectiveLayout = layout;
 
+  // Computed once per render instead of per filter per render (getGroupNarrowingInfo scans
+  // every other group member each time it's called).
+  const groupNarrowingConstraintsById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const filter of filters) {
+      map.set(
+        filter.id,
+        JSON.stringify(
+          getGroupNarrowingInfo(filter.id, groupFilterIds, filters, currentFilterValues)
+        )
+      );
+    }
+    return map;
+  }, [filters, groupFilterIds, currentFilterValues]);
+
   if (!filters || filters.length === 0) {
     if (isEditMode) {
       if (layout === 'vertical') {
@@ -701,14 +713,9 @@ export function UnifiedFiltersPanel({
                             isPublicMode={isPublicMode}
                             publicToken={publicToken}
                             isReportMode={isReportMode}
-                            groupNarrowingConstraintsJson={JSON.stringify(
-                              getGroupNarrowingInfo(
-                                filter.id,
-                                groupFilterIds,
-                                filters,
-                                currentFilterValues
-                              )
-                            )}
+                            groupNarrowingConstraintsJson={
+                              groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                            }
                           />
                         ))}
                       </div>
@@ -744,14 +751,9 @@ export function UnifiedFiltersPanel({
                                 isPublicMode={isPublicMode}
                                 publicToken={publicToken}
                                 isReportMode={isReportMode}
-                                groupNarrowingConstraintsJson={JSON.stringify(
-                                  getGroupNarrowingInfo(
-                                    filter.id,
-                                    groupFilterIds,
-                                    filters,
-                                    currentFilterValues
-                                  )
-                                )}
+                                groupNarrowingConstraintsJson={
+                                  groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                                }
                               />
                             ))}
                           </div>
@@ -777,14 +779,9 @@ export function UnifiedFiltersPanel({
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
                           isReportMode={isReportMode}
-                          groupNarrowingConstraintsJson={JSON.stringify(
-                            getGroupNarrowingInfo(
-                              filter.id,
-                              groupFilterIds,
-                              filters,
-                              currentFilterValues
-                            )
-                          )}
+                          groupNarrowingConstraintsJson={
+                            groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                          }
                         />
                       ))}
                     </div>
@@ -951,14 +948,9 @@ export function UnifiedFiltersPanel({
                             isPublicMode={isPublicMode}
                             publicToken={publicToken}
                             isReportMode={isReportMode}
-                            groupNarrowingConstraintsJson={JSON.stringify(
-                              getGroupNarrowingInfo(
-                                filter.id,
-                                groupFilterIds,
-                                filters,
-                                currentFilterValues
-                              )
-                            )}
+                            groupNarrowingConstraintsJson={
+                              groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                            }
                           />
                         ))}
                       </div>
@@ -994,14 +986,9 @@ export function UnifiedFiltersPanel({
                                 isPublicMode={isPublicMode}
                                 publicToken={publicToken}
                                 isReportMode={isReportMode}
-                                groupNarrowingConstraintsJson={JSON.stringify(
-                                  getGroupNarrowingInfo(
-                                    filter.id,
-                                    groupFilterIds,
-                                    filters,
-                                    currentFilterValues
-                                  )
-                                )}
+                                groupNarrowingConstraintsJson={
+                                  groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                                }
                               />
                             ))}
                           </div>
@@ -1027,14 +1014,9 @@ export function UnifiedFiltersPanel({
                           isPublicMode={isPublicMode}
                           publicToken={publicToken}
                           isReportMode={isReportMode}
-                          groupNarrowingConstraintsJson={JSON.stringify(
-                            getGroupNarrowingInfo(
-                              filter.id,
-                              groupFilterIds,
-                              filters,
-                              currentFilterValues
-                            )
-                          )}
+                          groupNarrowingConstraintsJson={
+                            groupNarrowingConstraintsById.get(filter.id) ?? '[]'
+                          }
                         />
                       ))}
                     </div>
