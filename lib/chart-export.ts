@@ -3,7 +3,10 @@ import jsPDF from 'jspdf';
 import * as echarts from 'echarts';
 import html2canvas from 'html2canvas-pro';
 import { apiGetBinary } from '@/lib/api';
-import { exportPivotAsCsv, getPivotRenderProps } from '@/components/charts/pivot-table/utils';
+import {
+  exportPivotAsCsv,
+  getPivotRenderProps,
+} from '@/components/charts/chart-types/pivot-table/utils';
 import type { PivotTableResponse } from '@/types/pivot-table';
 
 export interface ExportOptions {
@@ -22,6 +25,13 @@ export interface BrandingOptions {
   chartTitle?: string | null;
 }
 
+/**
+ * Structural type for an exportable chart. Callers pass instances from both the full
+ * `echarts` bundle and tree-shaken `echarts/core`; those are separate class declarations
+ * (nominally incompatible via private fields), so accept anything with getDataURL.
+ */
+export type ExportableECharts = Pick<echarts.ECharts, 'getDataURL'>;
+
 // Dimensions at 2× scale — matches pixelRatio:2 used in ECharts getDataURL
 const BRAND_SCALE = 2;
 const HEADER_H = 56 * BRAND_SCALE;
@@ -38,7 +48,7 @@ export class ChartExporter {
    * Export ECharts instance directly using built-in getDataURL
    */
   static async exportEChartsInstance(
-    chartInstance: echarts.ECharts,
+    chartInstance: ExportableECharts,
     options: ExportOptions = {}
   ): Promise<void> {
     const { filename = 'chart-export', format = 'png', backgroundColor = '#ffffff' } = options;
@@ -83,7 +93,7 @@ export class ChartExporter {
    */
   static async exportChart(
     element: HTMLElement | null,
-    chartInstance?: echarts.ECharts | null,
+    chartInstance?: ExportableECharts | null,
     options: ExportOptions = {}
   ): Promise<void> {
     // Use provided instance first
@@ -218,7 +228,7 @@ export class ChartExporter {
    * Export an ECharts instance as PNG or PDF with org branding (logo, title, powered-by).
    */
   static async exportEChartsWithBranding(
-    chartInstance: echarts.ECharts,
+    chartInstance: ExportableECharts,
     options: ExportOptions & BrandingOptions
   ): Promise<void> {
     const { filename = 'chart', format = 'png', orgLogoUrl, chartTitle } = options;

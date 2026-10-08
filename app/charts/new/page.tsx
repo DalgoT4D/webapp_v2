@@ -6,82 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  ArrowLeft,
-  BarChart2,
-  PieChart,
-  LineChart,
-  Hash,
-  MapPin,
-  Table,
-  Grid3X3,
-  Lock,
-} from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import { DatasetSelector } from '@/components/charts/DatasetSelector';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
+import { CHART_TYPE_INFO, NEW_CHART_CARD_ORDER } from '@/components/charts/chart-types/registry';
 
-// Chart type definitions with descriptions
-const chartTypes = [
-  {
-    id: 'bar',
-    name: 'Bar Chart',
-    description: 'Compare values across categories',
-    icon: BarChart2,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-  },
-  {
-    id: 'pie',
-    name: 'Pie Chart',
-    description: 'Show proportions of a whole',
-    icon: PieChart,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
-  },
-  {
-    id: 'line',
-    name: 'Line Chart',
-    description: 'Display trends over time',
-    icon: LineChart,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-  },
-  {
-    id: 'number',
-    name: 'Number',
-    description: 'Display key metrics and KPIs',
-    icon: Hash,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-  },
-  {
-    id: 'map',
-    name: 'Map',
-    description: 'Visualize geographic data',
-    icon: MapPin,
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-  },
-  {
-    id: 'table',
-    name: 'Table',
-    description: 'Display data in rows and columns',
-    icon: Table,
-    color: 'text-slate-600',
-    bgColor: 'bg-slate-50',
-  },
-  {
-    id: 'pivot_table',
-    name: 'Pivot Table',
-    description: 'Cross-tabulate data across two dimensions',
-    icon: Grid3X3,
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-  },
-];
+// Step-1 cards: label, description and Tailwind colors come from the registry.
+const chartTypes = NEW_CHART_CARD_ORDER.map((type) => ({
+  id: type,
+  name: CHART_TYPE_INFO[type].newChartCard.label,
+  description: CHART_TYPE_INFO[type].newChartCard.description,
+  icon: CHART_TYPE_INFO[type].icon,
+  color: CHART_TYPE_INFO[type].newChartCard.textClassName,
+  bgColor: CHART_TYPE_INFO[type].newChartCard.bgClassName,
+}));
 
 function NewChartPageContent() {
   const router = useRouter();
@@ -103,7 +44,11 @@ function NewChartPageContent() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You don't have permission to create charts.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/charts')}
+            data-testid="chart-new-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Charts
           </Button>
@@ -211,6 +156,7 @@ function NewChartPageContent() {
               table_name={selectedTable}
               onDatasetChange={handleDatasetChange}
               autoFocus={true}
+              id="chart-new-dataset-select"
             />
           </div>
         </div>
@@ -254,6 +200,7 @@ function NewChartPageContent() {
                             : {}
                         }
                         role="radio"
+                        data-testid={`chart-type-card-${chart.id}`}
                         aria-checked={isSelected}
                         tabIndex={0}
                         onClick={() => handleChartTypeSelect(chart.id)}
@@ -290,7 +237,7 @@ function NewChartPageContent() {
       {/* Bottom Actions */}
       <Separator className="my-8" />
       <div className="flex items-center gap-3">
-        <Button variant="cancel" onClick={handleCancel}>
+        <Button variant="cancel" onClick={handleCancel} data-testid="chart-new-cancel-button">
           Cancel
         </Button>
         <Button

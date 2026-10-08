@@ -4,10 +4,11 @@ import { useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDashboard } from '@/hooks/api/useDashboards';
 import { DashboardNativeView } from '@/components/dashboard/dashboard-native-view';
-import { IndividualDashboardView } from '@/components/dashboard/individual-dashboard-view';
+import { SupersetDashboardView } from '@/components/dashboard/superset-dashboard-view';
 import { NoAccess } from '@/components/no-access';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { useRbac } from '@/lib/rbac';
+import { getRolePermissions } from '@/components/access/logic/resource-permissions';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
@@ -20,7 +21,7 @@ export default function DashboardViewPage() {
 
   // Get user permissions
   const { hasPermission } = useRbac();
-  const canViewDashboard = hasPermission(PERMISSIONS.CAN_VIEW_DASHBOARDS);
+  const canViewDashboard = getRolePermissions('dashboard', hasPermission).canView;
 
   // Fetch dashboard to determine type — don't start the request without view permission
   const {
@@ -59,7 +60,11 @@ export default function DashboardViewPage() {
           <p className="text-muted-foreground mb-4">
             You don't have permission to view dashboards.
           </p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="dashboard-view-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
@@ -94,6 +99,6 @@ export default function DashboardViewPage() {
     return <DashboardNativeView dashboardId={parseInt(dashboardId)} />;
   } else {
     // Superset dashboard
-    return <IndividualDashboardView dashboardId={dashboardId} />;
+    return <SupersetDashboardView dashboardId={dashboardId} />;
   }
 }

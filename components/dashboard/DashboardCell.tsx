@@ -2,14 +2,13 @@
 
 import React, { memo } from 'react';
 import { Eye, Edit, X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { ChartElementV2 } from './chart-element-v2';
-import { KPIChartElement } from './kpi-chart-element';
-import { UnifiedTextElement, type UnifiedTextConfig } from './text-element-unified';
+import { BUILDER_WIDGETS } from '@/components/dashboard/widgets/builder-widgets';
 import { DashboardComponentType } from '@/types/dashboard';
+import type { DashboardComponentConfig } from '@/types/dashboard';
 import type { DashboardFilterConfig } from '@/types/dashboard-filters';
 import { useChart } from '@/hooks/api/useCharts';
 import { useKPI } from '@/hooks/api/useKPIs';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 interface DashboardLayout {
   i: string;
@@ -26,6 +25,7 @@ interface DashboardLayout {
 interface DashboardComponent {
   id: string;
   type: DashboardComponentType;
+  // any: component.config.chartId / .kpiId are read as number below (TS2345 if typed unknown) — kept any, see Task 13 row 11
   config: any;
 }
 
@@ -38,7 +38,7 @@ interface DashboardCellProps {
   spaceMakingActive: boolean;
   animationStyles: React.CSSProperties;
   isResizing: boolean;
-  appliedFilters: Record<string, any>;
+  appliedFilters: Record<string, unknown>;
   initialFilters: DashboardFilterConfig[];
   /** Passed through to UnifiedTextElement for analytics. A stable number, so it does not
    *  affect the React.memo comparison this component relies on for drag performance. */
@@ -49,7 +49,7 @@ interface DashboardCellProps {
   onViewKpi: (kpiId: number) => void;
   onEditKpi: (kpiId: number) => void;
   onRemove: (id: string) => void;
-  onUpdate: (id: string, config: any) => void;
+  onUpdate: (id: string, config: DashboardComponentConfig['config']) => void;
 }
 
 function DashboardCellInner({
@@ -76,12 +76,14 @@ function DashboardCellInner({
   const isKPI = component.type === DashboardComponentType.KPI;
   const { data: chart } = useChart(isChart ? component.config.chartId : null);
   const { kpi } = useKPI(isKPI ? component.config.kpiId : null);
-  const canEditCharts = chart?.access_level === 'edit';
-  const canEditKpis = kpi?.access_level === 'edit';
+  const canEditCharts = hasEditAccess(chart?.access_level);
+  const canEditKpis = hasEditAccess(kpi?.access_level);
+  const BuilderWidget = BUILDER_WIDGETS[component.type];
 
   return (
     <div
       data-component-id={item.i}
+      data-testid={`dashboard-cell-${item.i}`}
       className={`dashboard-item bg-transparent relative group transition-all duration-200 ${
         isAnimating ? 'animating' : ''
       } ${isBeingPushed ? 'being-pushed' : ''} ${
@@ -99,6 +101,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
             title="View Chart"
+            data-testid={`dashboard-cell-view-${item.i}`}
           >
             <Eye className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -110,6 +113,7 @@ function DashboardCellInner({
               }}
               className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
               title="Edit Chart"
+              data-testid={`dashboard-cell-edit-${item.i}`}
             >
               <Edit className="w-3.5 h-3.5 text-gray-600" />
             </button>
@@ -121,6 +125,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove Chart From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -137,6 +142,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove Text From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -153,6 +159,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-blue-600"
             title="View KPI"
+            data-testid={`dashboard-cell-view-${item.i}`}
           >
             <Eye className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -164,6 +171,7 @@ function DashboardCellInner({
               }}
               className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-green-600"
               title="Edit KPI"
+              data-testid={`dashboard-cell-edit-${item.i}`}
             >
               <Edit className="w-3.5 h-3.5 text-gray-600" />
             </button>
@@ -175,6 +183,7 @@ function DashboardCellInner({
             }}
             className="h-7 w-7 flex items-center justify-center bg-white/90 hover:bg-white rounded shadow-sm transition-all drag-cancel hover:text-red-600"
             title="Remove KPI From Dashboard"
+            data-testid={`dashboard-cell-remove-${item.i}`}
           >
             <X className="w-3.5 h-3.5 text-gray-600" />
           </button>
@@ -182,42 +191,26 @@ function DashboardCellInner({
       )}
 
       {/* Drag Handle Area - Top section for dragging */}
-      <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20">
+      <div
+        className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-blue-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-move flex items-center justify-center z-20"
+        data-testid={`dashboard-cell-drag-${item.i}`}
+      >
         <div className="text-xs text-gray-400 font-medium">Drag to move</div>
       </div>
 
       {/* Content Area - Charts fully visible and interactive */}
       <div className="flex-1 flex flex-col min-h-0 drag-cancel">
-        {isChart && (
-          <ChartElementV2
-            onRemove={() => onRemove(item.i)}
-            onUpdate={(config: any) => onUpdate(item.i, config)}
-            chartId={component.config.chartId}
-            config={component.config}
+        {BuilderWidget && (
+          <BuilderWidget
+            item={item}
+            component={component}
             isResizing={isResizing}
             appliedFilters={appliedFilters}
-            dashboardFilterConfigs={initialFilters}
-          />
-        )}
-        {isText && (
-          <UnifiedTextElement
-            onUpdate={(config: UnifiedTextConfig) => onUpdate(item.i, config)}
-            config={component.config as UnifiedTextConfig}
-            componentId={item.i}
-            isEditMode={true}
+            initialFilters={initialFilters}
             dashboardId={dashboardId}
+            onRemove={onRemove}
+            onUpdate={onUpdate}
           />
-        )}
-        {isKPI && (
-          <Card className="h-full w-full flex flex-col">
-            <CardContent className="p-2 flex-1 flex flex-col min-h-0">
-              <KPIChartElement
-                kpiId={component.config.kpiId}
-                config={component.config}
-                isResizing={isResizing}
-              />
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

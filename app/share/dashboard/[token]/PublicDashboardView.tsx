@@ -106,7 +106,9 @@ export function PublicDashboardView({
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <p className="mt-4 text-gray-600" data-testid="public-dashboard-loading">
+            Loading dashboard...
+          </p>
         </div>
       </div>
     );
@@ -115,7 +117,7 @@ export function PublicDashboardView({
   if (isError || !dashboard?.is_valid) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md" data-testid="public-dashboard-not-found">
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-lg font-semibold mb-2">Dashboard Not Found</h2>
@@ -125,10 +127,17 @@ export function PublicDashboardView({
             </p>
             <div className="flex flex-col items-center gap-2">
               <Link href="/login">
-                <Button variant="primary">Sign in to Dalgo</Button>
+                <Button variant="primary" data-testid="public-dashboard-sign-in-btn">
+                  Sign in to Dalgo
+                </Button>
               </Link>
               <Link href="https://dalgo.org" target="_blank" className="text-sm">
-                <Button variant="link" size="sm" className="text-muted-foreground">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-muted-foreground"
+                  data-testid="public-dashboard-learn-more-btn"
+                >
                   Learn about Dalgo
                   <ExternalLink className="h-3.5 w-3.5 ml-1" />
                 </Button>
@@ -157,18 +166,27 @@ export function PublicDashboardView({
     <div className={containerClasses}>
       {/* Public Header - Hidden in embed mode */}
       {!isEmbedMode && (
-        <header className="bg-white border-b">
+        <header className="bg-white border-b" data-testid="public-dashboard-header">
           <div className="px-6 py-4 flex items-center justify-between">
             {/* Left: Org logo + dashboard title + status */}
             <div className="flex items-center gap-4">
               <OrgBrand logoUrl={dashboard.org_logo_url} name={dashboard.org_name} />
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-gray-900">{dashboard.title}</h1>
+                  <h1
+                    className="text-lg font-bold text-gray-900"
+                    data-testid="public-dashboard-title"
+                  >
+                    {dashboard.title}
+                  </h1>
                   <Eye className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
                   <span className="text-sm text-gray-500">Public View</span>
                   <span className="text-gray-300 text-sm">|</span>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs"
+                    data-testid="public-dashboard-read-only-badge"
+                  >
                     Read Only
                   </Badge>
                   {updatedAtDisplay && (
@@ -193,6 +211,7 @@ export function PublicDashboardView({
       {/* Embed Mode Title/Organization - Show when enabled */}
       {isEmbedMode && (embedOptions?.showTitle || embedOptions?.showOrganization) && (
         <div
+          data-testid="public-dashboard-embed-header"
           className={`px-4 py-3 border-b flex-shrink-0 ${
             embedOptions.theme === 'dark'
               ? 'bg-gray-800 border-gray-700'
@@ -208,6 +227,7 @@ export function PublicDashboardView({
                     embedOptions.theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}
                   style={{ fontSize: '24px' }}
+                  data-testid="public-dashboard-embed-title"
                 >
                   {dashboard.title}
                 </h1>
@@ -222,6 +242,7 @@ export function PublicDashboardView({
                     embedOptions.theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                   }`}
                   style={{ fontSize: '22px' }}
+                  data-testid="public-dashboard-embed-org"
                 >
                   {dashboard.org_name}
                 </div>

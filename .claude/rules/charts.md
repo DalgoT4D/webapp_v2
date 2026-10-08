@@ -4,9 +4,7 @@ paths:
   - "components/charts/**"
   - "app/charts/**"
   - "types/charts.ts"
-  - "constants/chart-types.ts"
   - "lib/chart*"
-  - "lib/stacked-bar-utils*"
 ---
 
 # Charts — Domain Map
@@ -17,41 +15,37 @@ Charts are the core visualization unit. **They are consumed by dashboards and re
 
 | Concern | Location |
 |---|---|
-| Builder UI (entry) | `components/charts/ChartBuilder.tsx` |
-| Chart-type picker | `components/charts/ChartTypeSelector.tsx` |
-| Data config | `components/charts/ChartDataConfigurationV3.tsx`, `MetricsSelector.tsx`, `DatasetSelector.tsx`, `TableDimensionsSelector.tsx` |
-| Customization / filters / sort / pagination | `ChartCustomizations.tsx`, `ChartFiltersConfiguration.tsx`, `ChartSortConfiguration.tsx`, `ChartPaginationConfiguration.tsx` |
-| Preview | `ChartPreview.tsx`, `StaticChartPreview.tsx`, `MiniChart.tsx`, `DataPreview.tsx` |
-| Export (PNG/PDF) | `ChartExport.tsx`, `ChartExportDropdown.tsx`, `ChartExportDropdownForList.tsx` |
-| Per-type renderers | `components/charts/types/{bar,line,pie,number,table,map,shared}/` |
-| Map charts (geojson/regions) | `components/charts/map/` + `/api/charts/geojsons`, `/api/charts/regions`, `/api/charts/map-data` |
-| Pages | `app/charts/page.tsx` (list), `app/charts/[id]/edit/`, `app/charts/new/` |
-| Hooks | `hooks/api/useCharts.ts` (list), `hooks/api/useChart.ts` (single + mutations) |
-| Types | `types/charts.ts` (`ChartTypes` enum) |
-| Constants | `constants/chart-types.ts` |
-| Transform/payload helpers | `lib/chart-payload-utils.ts` (`mergeTableColumnFormatting`), `lib/chartAutoPrefill.ts` (`generateAutoPrefilledConfig`), `lib/stacked-bar-utils.ts` (`applyStackedBarLabels`) |
-| **Backend** | `DDP_backend/ddpui/core/charts/` (e.g. `pivot_service.py`) + `ddpui/api/charts_api.py` (`generate_chart_data_and_config`) |
+| Pages | `app/charts/page.tsx` (list), `app/charts/new/` (pick type + `configure/`), `app/charts/[id]/` (detail, `edit/`) |
+| Builder (shared by create + edit) | `components/charts/builder/` (`ChartBuilderLayout`, `data-config/*` sections, `metrics/*` tabs), `ChartDataConfiguration.tsx` (composes the sections), `hooks/` (`useChartBuilderState`, preview data, drill-down, unsaved-changes guard, save) |
+| Business rules (pure, Jest-tested) | `components/charts/logic/` — `validation.ts`, `payload.ts`, `type-switch.ts`, `default-name.ts`, `map-layers.ts`, `map-overlay.ts`, `map-drilldown.ts`, `table-drilldown.ts`, `metric-labels.ts`, `metric-columns.ts`, `dataset-change.ts`, `auto-prefill.ts`, `saved-chart*.ts`, `time-grain.ts`, `sort-options.ts`, `preview-requests.ts` |
+| Chart types | `components/charts/chart-types/registry.ts` (data only: icons, colours, labels) + `default-customizations.ts`; per-type code in `chart-types/echarts/` (bar/line/pie/number styling, formatting, legend, stacked bar), `table/`, `pivot-table/`, `map/` |
+| Shared styling controls | `components/charts/styling/` (number/date format, conditional formatting, appearance, table themes, search bar) |
+| List / detail | `components/charts/list/`, `components/charts/detail/` |
+| Preview / export | `ChartPreview.tsx`, `StaticChartPreview.tsx`, `DataPreview.tsx`, `ChartExportDropdown*.tsx`, `lib/chart-export.ts` |
+| Hooks (API) | `hooks/api/useCharts.ts`, `hooks/api/useChart.ts` |
+| Types | `types/charts.ts` (`ChartTypes`, `ChartType`) |
+| **Backend** | `DDP_backend/ddpui/core/charts/` + `ddpui/api/charts_api.py` |
 
 ## Data flow
 
 ```
 DatasetSelector → pick warehouse table (/api/warehouse/schemas, /api/charts/chart-data-preview)
-  → ChartDataConfigurationV3 (dimensions/metrics) builds a chart config payload
+  → ChartDataConfiguration (dimensions/metrics) builds a chart config payload
   → generateAutoPrefilledConfig / mergeTableColumnFormatting shape it
   → /api/charts/chart-data/ (backend charts_api.generate_chart_data_and_config + pivot_service)
-  → ChartPreview renders via the per-type renderer in components/charts/types/<type>/
+  → ChartPreview renders via the per-type renderer in components/charts/chart-types/<type>/
   → save → /api/charts/  (POST create / PUT /api/charts/{id}/)
 ```
 
 Key endpoints (`useChart.ts`): `/api/charts/`, `/api/charts/{id}/`, `/api/charts/{id}/data/`, `/api/charts/chart-data/`, `/api/charts/chart-data-preview/`, `/api/charts/export/`, `/api/charts/{id}/dashboards/` (which dashboards embed this chart).
 
-## ⚠️ Gotcha — V2 registry migration in progress
+## Code that changes together lives together
 
-Charts is mid-refactor to a **registry-based chart-type architecture** (per-type renderers under `components/charts/types/`). Some old code paths still exist. Before editing a chart type, confirm whether it goes through the registry or a legacy path, and follow the registry pattern for new work. (See the user's project memory "Charts V2 Migration Status" for the current task status.)
+A fix for one chart type goes in its `chart-types/<type>/` folder; a rule across all types goes in one `logic/` file. Differences between the create and edit builders are explicit (`builder: 'create' | 'edit'`, `// BUILDER-DRIFT:`), pinned bugs are marked `// PINNED-BUGS:` — grep before changing behavior.
 
 ## Implementation rules
 
-- **All charts use ECharts** — follow the established renderer patterns in `components/charts/types/`.
+- **All charts use ECharts** — follow the established renderer patterns in `components/charts/chart-types/`.
 - Transform API data into the chart-compatible shape via the `lib/chart*` helpers — don't reshape inline in components.
-- Export (PNG/PDF) uses the existing `ChartExport*` utilities — don't roll your own.
-- A new chart type means a new renderer under `components/charts/types/<type>/` registered in the registry, plus a `ChartTypes` entry and a `constants/chart-types.ts` entry.
+- Export (PNG/PDF) uses the existing `ChartExportDropdown*` utilities — don't roll your own.
+- A new chart type means a new renderer under `components/charts/chart-types/<type>/` registered in `components/charts/chart-types/registry.ts`, plus a `ChartTypes` entry.

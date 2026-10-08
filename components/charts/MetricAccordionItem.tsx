@@ -2,39 +2,27 @@
 
 import React from 'react';
 import { AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Combobox, highlightText } from '@/components/ui/combobox';
-import { TooltipLabel } from '@/components/charts/types/shared/TooltipLabel';
-import { ColumnTypeIcon } from '@/lib/columnTypeIcons';
-import { X, Loader2, Library, Save, ChevronDown } from 'lucide-react';
+import { X, Library } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ChartMetric } from '@/types/charts';
-import { getAvailableColumns, AGGREGATE_FUNCTIONS, DEFAULT_METRIC_ALIAS } from './MetricsSelector';
+import {
+  SavedMetricTab,
+  type SavedMetric,
+} from '@/components/charts/builder/metrics/SavedMetricTab';
+import { SimpleMetricTab } from '@/components/charts/builder/metrics/SimpleMetricTab';
+import { CalculatedMetricTab } from '@/components/charts/builder/metrics/CalculatedMetricTab';
+import { SaveToLibrarySection } from '@/components/charts/builder/metrics/SaveToLibrarySection';
+import { autoLabel, summaryOf } from '@/components/charts/logic/metric-labels';
 import { validateMetric } from '@/hooks/api/useMetrics';
 import { useDebounce } from '@/hooks/useDebounce';
 
 // Wait this long after the user stops typing before auto-validating + committing a calculated
 // expression, so we don't fire a request (and re-render the chart) on every keystroke.
 const EXPRESSION_COMMIT_DEBOUNCE_MS = 500;
-
-interface SavedMetric {
-  id: number;
-  name: string;
-  column?: string | null;
-  aggregation?: string | null;
-  column_expression?: string | null;
-}
 
 export interface MetricAccordionItemProps {
   metric: ChartMetric;
@@ -51,21 +39,6 @@ export interface MetricAccordionItemProps {
   onUpdate: (partial: Partial<ChartMetric>) => void;
   onRemove: () => void;
   onSaveToLibrary?: (metricName: string, mode: 'simple' | 'calculated') => void;
-}
-
-function summaryOf(metric: ChartMetric) {
-  return metric.column_expression
-    ? metric.column_expression.slice(0, 40)
-    : `${(metric.aggregation || '').toUpperCase()}(${metric.column || '*'})`;
-}
-
-// Auto-generated Display Name for a Simple metric. Count-all-rows gets the friendly default
-// ("Total Count", matching the auto-prefill); everything else is AGG(column). Module-level so the
-// customization check can use it during state init.
-function autoLabel(agg?: string | null, col?: string | null) {
-  const a = (agg || 'count').toLowerCase();
-  if (a === 'count' && (!col || col === '*')) return DEFAULT_METRIC_ALIAS;
-  return `${a.toUpperCase()}(${col || '*'})`;
 }
 
 export function MetricAccordionItem({
@@ -119,8 +92,6 @@ export function MetricAccordionItem({
   // to mark the name "customized" and block auto-follow.
   const [aliasInput, setAliasInput] = React.useState(metric.alias || '');
   const debouncedAliasInput = useDebounce(aliasInput, EXPRESSION_COMMIT_DEBOUNCE_MS);
-  const [metricName, setMetricName] = React.useState('');
-  const [showSaveSection, setShowSaveSection] = React.useState(false);
 
   const summary = summaryOf(metric);
   const labels =
@@ -305,121 +276,65 @@ export function MetricAccordionItem({
       <AccordionContent className="pb-3 space-y-3">
         <Tabs value={mode} onValueChange={handleTabChange}>
           <TabsList className="w-full h-8">
-            <TabsTrigger value="simple" className="flex-1 text-xs">
+            <TabsTrigger
+              value="simple"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-simple-${index}`}
+            >
               Simple
             </TabsTrigger>
-            <TabsTrigger value="calculated" className="flex-1 text-xs">
+            <TabsTrigger
+              value="calculated"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-calculated-${index}`}
+            >
               Calculated
             </TabsTrigger>
-            <TabsTrigger value="saved" className="flex-1 text-xs">
+            <TabsTrigger
+              value="saved"
+              className="flex-1 text-xs"
+              data-testid={`metric-tab-saved-${index}`}
+            >
               Saved
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="saved" className="mt-2 space-y-2">
-            <Combobox
-              id={`metric-saved-${index}`}
-              items={savedMetrics
-                // Hide metrics already added in other rows, but keep this row's own selection.
-                .filter((sm) => !isSavedMetricAdded?.(sm.id) || sm.id === metric.saved_metric_id)
-                .map((sm) => ({
-                  value: sm.id.toString(),
-                  label: sm.name,
-                  summary: sm.column_expression
-                    ? sm.column_expression.slice(0, 40)
-                    : `${(sm.aggregation || '').toUpperCase()}(${sm.column || '*'})`,
-                }))}
-              value={metric.saved_metric_id?.toString() ?? ''}
-              onValueChange={(v) => v && pickSavedMetric(v)}
+            <SavedMetricTab
+              index={index}
+              metric={metric}
+              savedMetrics={savedMetrics}
+              isSavedMetricAdded={isSavedMetricAdded}
               disabled={disabled}
-              searchPlaceholder="Search metrics..."
-              placeholder="Select a metric from pre-defined list"
-              emptyMessage="No metrics match your search"
-              noItemsMessage="No saved metrics yet"
-              renderItem={(item, _sel, q) => (
-                <div className="flex flex-col min-w-0">
-                  <TooltipLabel label={item.label}>{highlightText(item.label, q)}</TooltipLabel>
-                  <TooltipLabel label={item.summary} className="text-xs text-muted-foreground">
-                    {item.summary}
-                  </TooltipLabel>
-                </div>
-              )}
+              onPick={pickSavedMetric}
             />
           </TabsContent>
 
           <TabsContent value="simple" className="mt-2 space-y-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">{labels.function} *</Label>
-              <Select
-                value={metric.aggregation || 'count'}
-                onValueChange={(v) =>
-                  onUpdate(withAutoAlias({ aggregation: v, column_expression: undefined }))
-                }
-                disabled={disabled}
-              >
-                <SelectTrigger className="h-8" data-testid={`metric-agg-${index}`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGGREGATE_FUNCTIONS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">{labels.column} *</Label>
-              <Combobox
-                items={getAvailableColumns(columns, metric.aggregation || 'count').map((col) => ({
-                  value: col.column_name,
-                  label: col.column_name === '*' ? '* (Count all rows)' : col.column_name,
-                  data_type: col.data_type,
-                  disabled: col.disabled,
-                }))}
-                value={metric.aggregation === 'count' && !metric.column ? '*' : metric.column || ''}
-                onValueChange={(v) => onUpdate(withAutoAlias({ column: v === '*' ? null : v }))}
-                disabled={disabled}
-                searchPlaceholder="Search columns..."
-                placeholder="Select column"
-                compact
-                renderItem={(item, _sel, q) => (
-                  <div className="flex items-center gap-2 min-w-0">
-                    {item.value !== '*' && (
-                      <ColumnTypeIcon dataType={item.data_type} className="w-4 h-4" />
-                    )}
-                    <TooltipLabel label={item.label}>{highlightText(item.label, q)}</TooltipLabel>
-                  </div>
-                )}
-              />
-            </div>
+            <SimpleMetricTab
+              index={index}
+              metric={metric}
+              columns={columns}
+              chartType={chartType}
+              labels={labels}
+              disabled={disabled}
+              onUpdate={(partial) => onUpdate(withAutoAlias(partial))}
+            />
           </TabsContent>
 
           <TabsContent value="calculated" className="mt-2 space-y-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-600">Expression *</Label>
-              <Textarea
-                data-testid={`metric-expr-${index}`}
-                value={exprDraft}
-                onChange={(e) => {
-                  setExprDraft(e.target.value);
-                  setExprError(null);
-                }}
-                onBlur={commitExpression}
-                placeholder="Add an expression eg. SUM(column_name)/10"
-                rows={2}
-                className="font-mono text-sm"
-                disabled={disabled}
-              />
-              {validating && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Validating expression...</span>
-                </div>
-              )}
-              {exprError && <p className="text-xs text-destructive">{exprError}</p>}
-            </div>
+            <CalculatedMetricTab
+              index={index}
+              exprDraft={exprDraft}
+              onExprChange={(value) => {
+                setExprDraft(value);
+                setExprError(null);
+              }}
+              onBlur={commitExpression}
+              validating={validating}
+              exprError={exprError}
+              disabled={disabled}
+            />
           </TabsContent>
         </Tabs>
 
@@ -428,49 +343,15 @@ export function MetricAccordionItem({
         {chartType !== 'number' && displayNameField}
 
         {/* Save-to-library — only for the editable (Simple / Calculated) modes. */}
-        {mode !== 'saved' && schemaName && tableName && onSaveToLibrary && (
-          <div className="space-y-2">
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground w-full"
-              onClick={() => setShowSaveSection(!showSaveSection)}
-            >
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${showSaveSection ? '' : '-rotate-90'}`}
-              />
-              Add metric to library
-            </button>
-            {showSaveSection && (
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600">Metric Name *</Label>
-                  <Input
-                    value={metricName}
-                    onChange={(e) => setMetricName(e.target.value)}
-                    placeholder="Give a unique name"
-                    className="h-8 text-sm"
-                    disabled={disabled}
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    onSaveToLibrary(metricName, mode === 'calculated' ? 'calculated' : 'simple')
-                  }
-                  disabled={disabled || !metricName.trim() || saving}
-                  className="w-full h-8 text-xs bg-gray-900 text-white hover:bg-gray-700"
-                >
-                  {saving ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                  ) : (
-                    <Save className="h-3.5 w-3.5 mr-1" />
-                  )}
-                  ADD METRIC TO LIBRARY
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+        <SaveToLibrarySection
+          index={index}
+          mode={mode}
+          schemaName={schemaName}
+          tableName={tableName}
+          disabled={disabled}
+          saving={saving}
+          onSaveToLibrary={onSaveToLibrary}
+        />
       </AccordionContent>
     </AccordionItem>
   );

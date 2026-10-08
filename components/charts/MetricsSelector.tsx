@@ -10,11 +10,7 @@ import { toastSuccess, toastError } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, METRIC_CREATE_SOURCES } from '@/constants/analytics';
 import { MetricAccordionItem } from './MetricAccordionItem';
-
-// Default Display Name for the auto-added count-all metric. Matches the auto-prefill label in
-// lib/chartAutoPrefill and MetricAccordionItem's autoLabel(), so an unedited default is recognised
-// as auto-generated (not a user customization).
-export const DEFAULT_METRIC_ALIAS = 'Total Count';
+import { DEFAULT_METRIC_ALIAS } from './logic/metric-labels';
 
 interface MetricsSelectorProps {
   metrics: ChartMetric[];
@@ -27,45 +23,6 @@ interface MetricsSelectorProps {
   tableName?: string;
   /** New-chart flow only: auto-expand the prefilled metric on mount/async prefill. */
   isNewChart?: boolean;
-}
-
-export const AGGREGATE_FUNCTIONS = [
-  { value: 'count', label: 'Count' },
-  { value: 'sum', label: 'Sum' },
-  { value: 'avg', label: 'Average' },
-  { value: 'min', label: 'Minimum' },
-  { value: 'max', label: 'Maximum' },
-  { value: 'count_distinct', label: 'Count Distinct' },
-];
-
-const NUMERIC_TYPES = [
-  'integer',
-  'bigint',
-  'numeric',
-  'double precision',
-  'real',
-  'float',
-  'decimal',
-];
-
-/** Columns selectable for a given aggregation. COUNT allows `*`; non-count aggregations only numerics. */
-export function getAvailableColumns(
-  columns: Array<{ column_name: string; data_type: string }>,
-  aggregation: string
-) {
-  if (aggregation === 'count') {
-    return [...columns, { column_name: '*', data_type: 'any' }].map((col) => ({
-      ...col,
-      disabled: false,
-    }));
-  }
-  if (aggregation === 'count_distinct') {
-    return columns.map((col) => ({ ...col, disabled: false }));
-  }
-  return columns.map((col) => ({
-    ...col,
-    disabled: !NUMERIC_TYPES.includes(col.data_type.toLowerCase()),
-  }));
 }
 
 /** Default metric appended by "+ ADD ANOTHER METRIC" — a valid COUNT(*) with the shared default name. */

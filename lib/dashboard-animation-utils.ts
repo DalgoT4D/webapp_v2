@@ -3,6 +3,8 @@
  * Provides smooth animations, magnetic snapping, and auto-arrangement for dashboard components
  */
 
+import { GRID_COLUMN_COUNT } from '@/components/dashboard/grid/grid-constants';
+
 export interface Position {
   x: number;
   y: number;
@@ -60,12 +62,6 @@ export const MAGNETIC_ZONES = {
   CENTER_LINES: 12, // Snap to center alignment
 };
 
-export const INTERACTION_ZONES = {
-  ANTICIPATION: 3, // Start subtle preparation movement
-  ACTIVE_PUSH: 1.5, // Active displacement
-  OVERLAP: 0.5, // Direct collision handling
-};
-
 export const DEFAULT_SPACE_MAKING_CONFIG: SpaceMakingConfig = {
   anticipationRadius: 3,
   pushForce: 2,
@@ -104,11 +100,10 @@ export function calculateSnapZones(
 ): SnapZone[] {
   const zones: SnapZone[] = [];
   // Always use 12 columns for snap zones (Superset-style responsive grid)
-  const FIXED_COLS = 12;
-  const colWidth = containerWidth / FIXED_COLS;
+  const colWidth = containerWidth / GRID_COLUMN_COUNT;
 
   // Grid line snap zones - always 12 columns that scale with container width
-  for (let i = 0; i <= FIXED_COLS; i++) {
+  for (let i = 0; i <= GRID_COLUMN_COUNT; i++) {
     const x = i * colWidth;
     zones.push({
       type: 'grid',

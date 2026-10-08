@@ -47,7 +47,7 @@ jest.mock('@/components/charts/ChartPreview', () => ({ ChartPreview: (): null =>
 jest.mock('@/components/charts/ChartExportDropdown', () => ({
   ChartExportDropdown: (): null => null,
 }));
-jest.mock('@/components/ui/share-modal', () => ({ ShareModal: (): null => null }));
+jest.mock('@/components/share/ShareModal', () => ({ ShareModal: (): null => null }));
 jest.mock('@/components/access/request-edit-pill', () => ({ RequestEditPill: (): null => null }));
 jest.mock('@/components/onboarding/celebration-modal', () => ({
   CelebrationModal: (): null => null,

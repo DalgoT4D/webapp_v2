@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { X, Download, Upload, Target, Hammer } from 'lucide-react';
-import { NumberFormatSection } from '@/components/charts/types/shared/NumberFormatSection';
+import { NumberFormatSection } from '@/components/charts/styling/NumberFormatSection';
 import { DebouncedInput } from '@/components/charts/debounced-input';
 import type { KPIFormData } from './kpi-form-types';
 import { METRIC_TYPE_TAG_OPTIONS } from '@/types/kpis';

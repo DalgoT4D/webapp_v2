@@ -1,0 +1,293 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) default customizations: visualMap legend, 85% layout (400×300 fallback), zoom 0.8, raw series data 1`] = `
+{
+  "series": [
+    {
+      "animation": true,
+      "animationDuration": 1000,
+      "data": [
+        {
+          "name": "Karnataka",
+          "value": 10,
+        },
+        {
+          "name": "Kerala",
+          "value": 40,
+        },
+        {
+          "name": "Goa",
+          "value": null,
+        },
+      ],
+      "emphasis": {
+        "itemStyle": {
+          "areaColor": "#78add2",
+        },
+        "label": {
+          "fontSize": 14,
+          "show": true,
+        },
+      },
+      "itemStyle": {
+        "areaColor": "#f5f5f5",
+        "borderColor": "#000",
+        "borderWidth": 0,
+      },
+      "label": {
+        "color": "#333",
+        "fontSize": 12,
+        "show": false,
+      },
+      "layoutCenter": [
+        "50%",
+        "50%",
+      ],
+      "layoutSize": "85%",
+      "mapType": "<uniqueMapName>",
+      "name": "Map Data",
+      "roam": "move",
+      "selectedMode": "single",
+      "type": "map",
+      "zoom": 0.8,
+    },
+  ],
+  "title": undefined,
+  "visualMap": {
+    "bottom": "12px",
+    "calculable": true,
+    "inRange": {
+      "color": [
+        "#1f77b44D",
+        "#1f77b4",
+      ],
+    },
+    "itemHeight": 70,
+    "itemWidth": 16,
+    "left": "12px",
+    "max": 40,
+    "min": 10,
+    "orient": "vertical",
+    "realtime": false,
+    "show": true,
+    "text": [
+      "High",
+      "Low",
+    ],
+    "textStyle": {
+      "color": "#666",
+      "fontSize": 11,
+    },
+  },
+}
+`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) legend off: per-region opacity colours, no visualMap 1`] = `
+{
+  "series": [
+    {
+      "animation": true,
+      "animationDuration": 1000,
+      "data": [
+        {
+          "itemStyle": {
+            "areaColor": "#2ca02c4d",
+          },
+          "name": "Karnataka",
+          "value": 10,
+        },
+        {
+          "itemStyle": {
+            "areaColor": "#2ca02cff",
+          },
+          "name": "Kerala",
+          "value": 40,
+        },
+        {
+          "itemStyle": {
+            "areaColor": "#2ca02c11",
+          },
+          "name": "Goa",
+          "value": null,
+        },
+      ],
+      "emphasis": {
+        "itemStyle": {
+          "areaColor": "#80c680",
+        },
+        "label": {
+          "fontSize": 14,
+          "show": true,
+        },
+      },
+      "itemStyle": {
+        "areaColor": "#f5f5f5",
+        "borderColor": "#000",
+        "borderWidth": 0,
+      },
+      "label": {
+        "color": "#333",
+        "fontSize": 12,
+        "show": false,
+      },
+      "layoutCenter": [
+        "50%",
+        "50%",
+      ],
+      "layoutSize": "85%",
+      "mapType": "<uniqueMapName>",
+      "name": "Map Data",
+      "roam": "move",
+      "selectedMode": "single",
+      "type": "map",
+      "zoom": 0.8,
+    },
+  ],
+  "title": undefined,
+}
+`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) legend position, title, labels, unknown colour scheme falls back to Blues 1`] = `
+{
+  "series": [
+    {
+      "animation": true,
+      "animationDuration": 1000,
+      "data": [
+        {
+          "name": "Karnataka",
+          "value": 10,
+        },
+        {
+          "name": "Kerala",
+          "value": 40,
+        },
+        {
+          "name": "Goa",
+          "value": null,
+        },
+      ],
+      "emphasis": {
+        "itemStyle": {
+          "areaColor": "#78add2",
+        },
+        "label": {
+          "fontSize": 14,
+          "show": true,
+        },
+      },
+      "itemStyle": {
+        "areaColor": "#f5f5f5",
+        "borderColor": "#000",
+        "borderWidth": 0,
+      },
+      "label": {
+        "color": "#333",
+        "fontSize": 12,
+        "show": true,
+      },
+      "layoutCenter": [
+        "50%",
+        "50%",
+      ],
+      "layoutSize": "85%",
+      "mapType": "<uniqueMapName>",
+      "name": "Map Data",
+      "roam": "move",
+      "selectedMode": "single",
+      "type": "map",
+      "zoom": 0.8,
+    },
+  ],
+  "title": {
+    "left": "center",
+    "show": true,
+    "text": "Students",
+  },
+  "visualMap": {
+    "calculable": true,
+    "inRange": {
+      "color": [
+        "#1f77b44D",
+        "#1f77b4",
+      ],
+    },
+    "itemHeight": 70,
+    "itemWidth": 16,
+    "max": 40,
+    "min": 10,
+    "orient": "vertical",
+    "realtime": false,
+    "right": "12px",
+    "show": true,
+    "text": [
+      "High",
+      "Low",
+    ],
+    "textStyle": {
+      "color": "#666",
+      "fontSize": 11,
+    },
+    "top": "12px",
+  },
+}
+`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) single value: range collapses and the one region is full colour 1`] = `
+{
+  "series": [
+    {
+      "animation": true,
+      "animationDuration": 1000,
+      "data": [
+        {
+          "itemStyle": {
+            "areaColor": "#1f77b4ff",
+          },
+          "name": "Goa",
+          "value": 5,
+        },
+      ],
+      "emphasis": {
+        "itemStyle": {
+          "areaColor": "#78add2",
+        },
+        "label": {
+          "fontSize": 14,
+          "show": true,
+        },
+      },
+      "itemStyle": {
+        "areaColor": "#f5f5f5",
+        "borderColor": "#000",
+        "borderWidth": 0,
+      },
+      "label": {
+        "color": "#333",
+        "fontSize": 12,
+        "show": false,
+      },
+      "layoutCenter": [
+        "50%",
+        "50%",
+      ],
+      "layoutSize": "85%",
+      "mapType": "<uniqueMapName>",
+      "name": "Map Data",
+      "roam": "move",
+      "selectedMode": "single",
+      "type": "map",
+      "zoom": 0.8,
+    },
+  ],
+  "title": undefined,
+}
+`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) tooltip: escapes HTML, formats numbers, null label, build-time container size (400×300 default) 1`] = `"<b>A &lt;b&gt;</b><br/>Total &lt;students&gt;: 1,234.5"`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) tooltip: escapes HTML, formats numbers, null label, build-time container size (400×300 default) 2`] = `"<b>A very long region name indeed</b><br/>Total &lt;students&gt;: 1.0"`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) tooltip: escapes HTML, formats numbers, null label, build-time container size (400×300 default) 3`] = `"<b>Goa</b><br/>n&#x2F;a"`;
+
+exports[`MapPreview option (characterization of the pre-R6 inline builder) tooltip: escapes HTML, formats numbers, null label, build-time container size (400×300 default) 4`] = `"<b>Goa</b><br/>n&#x2F;a"`;

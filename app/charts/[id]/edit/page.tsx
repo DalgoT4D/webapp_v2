@@ -1,175 +1,63 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Database, BarChart3, Lock, ArrowLeft } from 'lucide-react';
-import { ChartDataConfigurationV3 } from '@/components/charts/ChartDataConfigurationV3';
+import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { ChartDataConfiguration } from '@/components/charts/ChartDataConfiguration';
 import { ChartCustomizations } from '@/components/charts/ChartCustomizations';
-import { ChartPreview } from '@/components/charts/ChartPreview';
-import { DataPreview } from '@/components/charts/DataPreview';
-import { TableChart } from '@/components/charts/TableChart';
-import { MapDataConfigurationV3 } from '@/components/charts/map/MapDataConfigurationV3';
-import { MapCustomizations } from '@/components/charts/map/MapCustomizations';
-import { MapPreview } from '@/components/charts/map/MapPreview';
-import { SaveOptionsDialog } from '@/components/charts/SaveOptionsDialog';
-import { UnsavedChangesExitDialog } from '@/components/charts/UnsavedChangesExitDialog';
+import { MapDataConfiguration } from '@/components/charts/chart-types/map/MapDataConfiguration';
+import { MapCustomizations } from '@/components/charts/chart-types/map/MapCustomizations';
+import { useChart, useColumns } from '@/hooks/api/useChart';
+import { ChartTypes, type ChartDataPayload } from '@/types/charts';
+import { trackFeatureView } from '@/lib/analytics';
+import { FEATURES } from '@/constants/analytics';
+import { CHART_BUILDER_TAB_ANALYTICS } from '@/components/charts/utils';
+import { getWidgetBackLabel } from '@/lib/widget-navigation';
+import { canSaveChart } from '@/components/charts/logic/validation';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
+import { createEmptyEditConfig, toBuilderConfig } from '@/components/charts/logic/saved-chart';
+import { useChartBuilderState } from '@/components/charts/hooks/useChartBuilderState';
+import { usePreviewPagination } from '@/components/charts/hooks/usePreviewPagination';
+import { useChartPreviewData } from '@/components/charts/hooks/useChartPreviewData';
+import { useBuilderMapPreview } from '@/components/charts/hooks/useBuilderMapPreview';
+import { useMapDrillDown } from '@/components/charts/hooks/useMapDrillDown';
+import { useTableDrillDown } from '@/components/charts/hooks/useTableDrillDown';
+import { useConfigIncompleteOverlay } from '@/components/charts/hooks/useConfigIncompleteOverlay';
+import { useEditChartNavigation } from '@/components/charts/hooks/useEditChartNavigation';
+import { useSaveExistingChart } from '@/components/charts/hooks/useSaveExistingChart';
+import { buildChartDataPayload } from '@/components/charts/logic/payload';
+import { useUnsavedChangesGuard } from '@/components/charts/hooks/useUnsavedChangesGuard';
+import { ChartBuilderLayout } from '@/components/charts/builder/ChartBuilderLayout';
+import { BuilderChartPanel } from '@/components/charts/builder/BuilderChartPanel';
+import { BuilderDataPanel } from '@/components/charts/builder/BuilderDataPanel';
+import { ConfigIncompleteOverlay } from '@/components/charts/builder/ConfigIncompleteOverlay';
+import { EditChartHeader } from '@/components/charts/builder/EditChartHeader';
+import { EditChartDialogs } from '@/components/charts/builder/EditChartDialogs';
 import {
-  useChart,
-  useUpdateChart,
-  useCreateChart,
-  useChartData,
-  useChartDataPreview,
-  useChartDataPreviewTotalRows,
-  useGeoJSONData,
-  useMapDataOverlay,
-  useRawTableData,
-  useTableCount,
-  useColumns,
-  useRegions,
-  useChildRegions,
-  useRegionGeoJSONs,
-} from '@/hooks/api/useChart';
-import { toastSuccess, toastError } from '@/lib/toast';
-import { ChartTypes, type ChartType } from '@/types/charts';
-import { buildPivotDataFields, buildPivotExtraConfig } from '@/components/charts/pivot-table/utils';
-import {
-  getApiCustomizations,
-  mergeTableColumnFormatting,
-  resolveTableColumnOrder,
-} from '@/lib/chart-payload-utils';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-
-import { deepEqual } from '@/lib/form-utils';
-import { resolveDrillDownGeoJSON } from '@/lib/map-drilldown-utils';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { trackEvent, trackFeatureView } from '@/lib/analytics';
-import {
-  ANALYTICS_EVENTS,
-  CHART_CREATE_SOURCES,
-  FEATURES,
-  METRIC_USE_SOURCES,
-} from '@/constants/analytics';
-import {
-  CHART_BUILDER_TAB_ANALYTICS,
-  getMetricAnalyticsProps,
-  getNewlyUsedSavedMetricIds,
-  getUsedSavedMetricIds,
-  isDrillDownEnabled,
-} from '@/components/charts/utils';
-import type {
-  ChartCreate,
-  ChartUpdate,
-  ChartBuilderFormData,
-  ChartDataPayload,
-} from '@/types/charts';
-import {
-  getChartViewUrl,
-  getWidgetBackLabel,
-  parseWidgetNavigationSource,
-} from '@/lib/widget-navigation';
-
-// Default customizations for each chart type
-function getDefaultCustomizations(chartType: string): Record<string, any> {
-  switch (chartType) {
-    case ChartTypes.BAR:
-      return {
-        orientation: 'vertical',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        stacked: false,
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        // Bar categories are usually long text labels — 45° keeps them readable without truncation
-        xAxisLabelRotation: '45',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.PIE:
-      return {
-        chartStyle: 'donut',
-        labelFormat: 'percentage',
-        showDataLabels: true,
-        dataLabelPosition: 'outside',
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-      };
-    case ChartTypes.LINE:
-      return {
-        lineStyle: 'smooth',
-        showDataPoints: true,
-        showTooltip: true,
-        showLegend: true,
-        legendDisplay: 'paginated',
-        legendPosition: 'top',
-        showDataLabels: false,
-        dataLabelPosition: 'top',
-        xAxisTitle: '',
-        yAxisTitle: '',
-        xAxisLabelRotation: 'horizontal',
-        yAxisLabelRotation: 'horizontal',
-      };
-    case ChartTypes.NUMBER:
-      return {
-        numberSize: 'medium',
-        subtitle: '',
-        numberFormat: 'default',
-        decimalPlaces: 0,
-        numberPrefix: '',
-        numberSuffix: '',
-      };
-    case ChartTypes.MAP:
-      return {
-        colorScheme: 'Blues',
-        showTooltip: true,
-        showLegend: true,
-        nullValueLabel: 'No Data',
-        title: '',
-        showLabels: false,
-      };
-    case ChartTypes.PIVOT_TABLE:
-      return {
-        numberFormat: 'default',
-        decimalPlaces: 0,
-      };
-    default:
-      return {};
-  }
-}
+  EditChartAccessDenied,
+  EditChartLoading,
+  EditChartNotFound,
+} from '@/components/charts/builder/EditChartStates';
 
 function EditChartPageContent() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const navigationSource = parseWidgetNavigationSource(searchParams.get('from'));
-  const hasNavigationSource = navigationSource !== null;
   const chartId = Number(params.id);
   const { data: chart, error: chartError, isLoading: chartLoading } = useChart(chartId);
   // Per-resource access — a member granted edit has chart.access_level === 'edit'
   // even without the role-level can_edit_charts slug. Backend enforces on save.
-  const canEditThisChart = chart?.access_level === 'edit';
-  const { trigger: updateChart, isMutating } = useUpdateChart();
-  const { trigger: createChart, isMutating: isCreating } = useCreateChart();
+  const canEditThisChart = hasEditAccess(chart?.access_level);
 
-  // Initialize form data with chart data when loaded
-  const initialFormData: ChartBuilderFormData = {
-    title: '',
-    chart_type: ChartTypes.BAR,
-    computation_type: 'aggregated',
-    customizations: getDefaultCustomizations(ChartTypes.BAR),
-    aggregate_function: 'sum',
-  };
-
-  const [formData, setFormData] = useState<ChartBuilderFormData>(initialFormData);
+  // Every patch goes through the edit page's legacy second pass (applied by the reducer); a patch
+  // that keeps the chart type is a plain merge. BUILDER-DRIFT: the create page merges type switches as is.
+  const {
+    config,
+    savedConfig,
+    hasUnsavedChanges,
+    patchConfig,
+    loadSavedChart,
+    setSavedBaseline,
+    markSaved,
+  } = useChartBuilderState('edit', createEmptyEditConfig);
 
   const [activeTab, setActiveTab] = useState('chart');
 
@@ -185,1326 +73,78 @@ function EditChartPageContent() {
     handleTabView(tabValue);
   };
 
-  const [dataPreviewPage, setDataPreviewPage] = useState(1);
-  const [dataPreviewPageSize, setDataPreviewPageSize] = useState(25);
-  const [rawDataPage, setRawDataPage] = useState(1);
-  const [rawDataPageSize, setRawDataPageSize] = useState(20);
-  const [tableChartPage, setTableChartPage] = useState(1);
-  const [tableChartPageSize, setTableChartPageSize] = useState(20);
+  const pages = usePreviewPagination('edit', config.pagination);
 
   // ✅ ADD: Drill-down state management for table charts
-  const [tableDrillDownState, setTableDrillDownState] = useState<{
-    currentLevel: number; // 0 = first dimension, 1 = second dimension, etc.
-    appliedFilters: Record<string, string>; // { dimension_column: value }
-  } | null>(null);
-
-  const [originalFormData, setOriginalFormData] = useState<ChartBuilderFormData | null>(null);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [showExitDialog, setShowExitDialog] = useState(false);
-  const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
-  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState({
-    open: false,
-    onConfirm: () => {},
-    onCancel: () => {},
+  const tableDrill = useTableDrillDown({
+    dimensions: config.dimensions,
+    isTable: config.chart_type === ChartTypes.TABLE,
+    drillUpColumns: 'drillEnabled',
+    onLevelChange: pages.resetTableChartPage,
   });
-  const [errorToastVisible, setErrorToastVisible] = useState(false);
-  const [errorToastDismissed, setErrorToastDismissed] = useState(false);
-  const [lastValidChartConfig, setLastValidChartConfig] = useState<any>(null);
 
-  // Drill-down state for map preview
-  const [drillDownPath, setDrillDownPath] = useState<
-    Array<{
-      level: number;
-      name: string;
-      geographic_column: string;
-      parent_selections: Array<{
-        column: string;
-        value: string;
-      }>;
-      region_id?: number; // Additional field for our use
-    }>
-  >([]);
-
-  // Helper to convert layers structure back to simplified fields for UI
-  const convertLayersToSimplified = (layers: any[]) => {
-    if (!layers || layers.length === 0) {
-      return {};
-    }
-
-    const simplified: any = {};
-
-    // Level 0: Geographic column (states/counties/provinces)
-    if (layers[0]?.geographic_column) {
-      simplified.geographic_column = layers[0].geographic_column;
-      simplified.selected_geojson_id = layers[0].geojson_id;
-    }
-
-    // Level 1+: Additional drill-down levels
-    const levelMappings = [
-      { level: 1, field: 'district_column' },
-      { level: 2, field: 'ward_column' },
-      { level: 3, field: 'subward_column' },
-    ];
-
-    levelMappings.forEach((mapping) => {
-      const layer = layers.find((l) => l.level === mapping.level);
-      if (layer?.geographic_column) {
-        simplified[mapping.field] = layer.geographic_column;
-      }
-    });
-
-    // Set drill_down_enabled if we have any additional levels
-    simplified.drill_down_enabled = layers.length > 1;
-
-    return simplified;
-  };
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isExitingAfterSave, setIsExitingAfterSave] = useState(false);
 
   // Update form data when chart loads
   useEffect(() => {
-    if (chart) {
-      // Convert layers to simplified fields if they exist
-      const simplifiedFromLayers = chart.extra_config?.layers
-        ? convertLayersToSimplified(chart.extra_config.layers)
-        : {};
+    if (chart) loadSavedChart(toBuilderConfig(chart));
+  }, [chart, loadSavedChart]);
 
-      const initialData: ChartBuilderFormData = {
-        title: chart.title,
-        chart_type: chart.chart_type as ChartType,
-        computation_type: chart.computation_type as 'raw' | 'aggregated',
-        schema_name: chart.schema_name,
-        table_name: chart.table_name,
-        x_axis_column: chart.extra_config?.x_axis_column,
-        y_axis_column: chart.extra_config?.y_axis_column,
-        dimension_column: chart.extra_config?.dimension_column,
-        aggregate_column: chart.extra_config?.aggregate_column,
-        aggregate_function: chart.extra_config?.aggregate_function,
-        extra_dimension_column: chart.extra_config?.extra_dimension_column,
-        metrics: chart.extra_config?.metrics,
-        time_grain: chart.extra_config?.time_grain,
-        // Use converted simplified fields, fallback to direct extra_config values
-        geographic_column:
-          simplifiedFromLayers.geographic_column || chart.extra_config?.geographic_column,
-        value_column: chart.extra_config?.value_column,
-        selected_geojson_id:
-          simplifiedFromLayers.selected_geojson_id || chart.extra_config?.selected_geojson_id,
-        // Simplified map drill-down fields
-        district_column:
-          simplifiedFromLayers.district_column || chart.extra_config?.district_column,
-        ward_column: simplifiedFromLayers.ward_column || chart.extra_config?.ward_column,
-        subward_column: simplifiedFromLayers.subward_column || chart.extra_config?.subward_column,
-        drill_down_enabled:
-          simplifiedFromLayers.drill_down_enabled || chart.extra_config?.drill_down_enabled,
-        country_code: chart.extra_config?.country_code || 'IND',
-        layers:
-          chart.extra_config?.layers ||
-          (chart.chart_type === ChartTypes.MAP
-            ? [
-                {
-                  id: '0',
-                  level: 0,
-                  geographic_column: chart.extra_config?.geographic_column,
-                  geojson_id: chart.extra_config?.selected_geojson_id,
-                },
-              ]
-            : undefined),
-        customizations:
-          chart.extra_config?.customizations || getDefaultCustomizations(chart.chart_type),
-        filters: chart.extra_config?.filters || [],
-        pagination: chart.extra_config?.pagination || { enabled: false, page_size: 50 },
-        sort: chart.extra_config?.sort || [],
-        // ✅ FIX: Include geographic_hierarchy so DynamicLevelConfig can auto-fill
-        geographic_hierarchy: chart.extra_config?.geographic_hierarchy,
-        // Include table_columns for table charts
-        table_columns: chart.extra_config?.table_columns || [],
-        // ✅ FIX: Include dimensions and dimension_columns for table charts
-        ...(chart.chart_type === ChartTypes.TABLE && {
-          dimensions:
-            chart.extra_config?.dimensions && chart.extra_config.dimensions.length > 0
-              ? chart.extra_config.dimensions.map((d: any) => ({
-                  column: d.column || d,
-                  enable_drill_down: d.enable_drill_down === true,
-                }))
-              : chart.extra_config?.dimension_columns &&
-                  chart.extra_config.dimension_columns.length > 0
-                ? chart.extra_config.dimension_columns.map((col: string) => ({
-                    column: col,
-                    enable_drill_down: false,
-                  }))
-                : chart.extra_config?.dimension_column
-                  ? [
-                      {
-                        column: chart.extra_config.dimension_column,
-                        enable_drill_down: false,
-                      },
-                    ]
-                  : [],
-          dimension_columns:
-            chart.extra_config?.dimension_columns ||
-            (chart.extra_config?.dimensions
-              ? chart.extra_config.dimensions.map((d: any) => d.column || d).filter(Boolean)
-              : chart.extra_config?.dimension_column
-                ? [chart.extra_config.dimension_column]
-                : []),
-        }),
-        // Include pivot table fields from extra_config when loading a pivot_table chart
-        ...(chart.chart_type === ChartTypes.PIVOT_TABLE && {
-          extra_config: buildPivotExtraConfig(chart.extra_config),
-        }),
-      };
-      setFormData(initialData);
-      setOriginalFormData(initialData);
-    }
-  }, [chart]);
-
-  // For new charts or charts that couldn't be loaded, set originalFormData to initial state
-  // This enables unsaved changes detection even for new charts
+  // Chart missing and not loading: the empty config is the baseline (enables the unsaved check).
   useEffect(() => {
-    console.log('🔍 [UNSAVED-CHANGES] Checking conditions:', {
-      hasChart: !!chart,
-      chartLoading,
-      hasOriginalFormData: !!originalFormData,
-      chartId,
-    });
+    if (!chart && !chartLoading && !savedConfig) setSavedBaseline(createEmptyEditConfig());
+  }, [chart, chartLoading, savedConfig, setSavedBaseline]);
 
-    if (!chart && !chartLoading && !originalFormData) {
-      console.log('✅ [UNSAVED-CHANGES] Setting originalFormData for new/unloaded chart');
-      setOriginalFormData({ ...initialFormData });
-    }
-  }, [chart, chartLoading, originalFormData, initialFormData, chartId]);
+  const nav = useEditChartNavigation({ markSaved });
+  const { navigationSource, hasNavigationSource, chartDetailUrl } = nav;
 
-  // Check for unsaved changes
-  const hasUnsavedChanges = useMemo(() => {
-    const hasChanges = originalFormData ? !deepEqual(formData, originalFormData) : false;
-    return hasChanges;
-  }, [formData, originalFormData]);
-
-  const navigateWithoutWarning = useCallback(
-    (url: string) => {
-      setOriginalFormData({ ...formData }); // Mark as saved
-      router.push(url);
-    },
-    [router, formData]
-  );
-
-  const navigateBackWithoutWarning = useCallback(() => {
-    setOriginalFormData({ ...formData }); // Mark as saved
-    router.back();
-  }, [router, formData]);
-
-  const navigateReplaceWithoutWarning = useCallback(
-    (url: string) => {
-      setOriginalFormData({ ...formData }); // Mark as saved
-      router.replace(url);
-    },
-    [router, formData]
-  );
-
-  // Preserve dashboard/report context while moving between detail and edit.
-  const chartDetailUrl = useCallback(
-    (id: number | string) => {
-      return getChartViewUrl(id, navigationSource);
-    },
-    [navigationSource]
-  );
-
-  // Replace for dashboard/report origins to keep the source as the previous history entry.
-  const navigateToChartDetail = useCallback(
-    (id: number | string) => {
-      if (hasNavigationSource) {
-        navigateReplaceWithoutWarning(chartDetailUrl(id));
-      } else {
-        navigateWithoutWarning(chartDetailUrl(id));
-      }
-    },
-    [hasNavigationSource, navigateReplaceWithoutWarning, navigateWithoutWarning, chartDetailUrl]
-  );
-
-  // Navigate back to the originating dashboard/report after exit-save.
-  const navigateToOrigin = useCallback(() => {
-    if (hasNavigationSource) {
-      navigateBackWithoutWarning();
-    } else {
-      navigateWithoutWarning('/charts');
-    }
-  }, [hasNavigationSource, navigateBackWithoutWarning, navigateWithoutWarning]);
-
-  // Handle browser navigation (refresh, close tab, external links)
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
-      }
-      return undefined;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
-
-  // Check if form data is complete enough to generate chart data
-  const isChartDataReady = () => {
-    if (!formData.schema_name || !formData.table_name || !formData.chart_type) {
-      return false;
-    }
-
-    if (formData.chart_type === ChartTypes.NUMBER) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          metric.column_expression ||
-          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      return !!(
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          formData.geographic_column &&
-          formData.selected_geojson_id &&
-          (metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      // Count(*) doesn't need a value_column, similar to other chart types
-      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
-      return !!(
-        formData.geographic_column &&
-        (!needsValueColumn || formData.value_column) &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.TABLE) {
-      return true; // Table charts just need basic schema/table selection
-    }
-
-    if (formData.chart_type === 'pivot_table') {
-      // Presence alone isn't enough — each metric must be a valid definition
-      // (mirrors the create-flow pivot predicate).
-      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
-      const hasValidMetrics =
-        (formData.metrics || []).length > 0 &&
-        formData.metrics!.every(
-          (metric) =>
-            metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      return hasRowDimensions && hasValidMetrics;
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.column_expression ||
-              (metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column))
-          )
-        );
-      }
-
-      // Legacy single metric approach
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (formData.aggregate_function === 'count' || formData.aggregate_column)
-      );
-    }
-  };
+  // Browser leave warning (refresh, close tab, external links) + the exit / back leave dialogs.
+  const guard = useUnsavedChangesGuard(hasUnsavedChanges);
 
   // Build payload for chart data - use useMemo to update when drill-down state changes
   const chartDataPayload: ChartDataPayload | null = useMemo(
-    () =>
-      isChartDataReady()
-        ? {
-            chart_type: formData.chart_type!,
-            computation_type: formData.computation_type!,
-            schema_name: formData.schema_name!,
-            table_name: formData.table_name!,
-            ...(formData.x_axis_column && { x_axis: formData.x_axis_column }),
-            ...(formData.y_axis_column && { y_axis: formData.y_axis_column }),
-            ...(formData.dimension_column && { dimension_col: formData.dimension_column }),
-            ...(formData.aggregate_column && { aggregate_col: formData.aggregate_column }),
-            ...(formData.aggregate_function && { aggregate_func: formData.aggregate_function }),
-            ...(formData.extra_dimension_column && {
-              extra_dimension: formData.extra_dimension_column,
-            }),
-            ...(formData.geographic_column && { geographic_column: formData.geographic_column }),
-            ...(formData.value_column && { value_column: formData.value_column }),
-            ...(formData.selected_geojson_id && {
-              selected_geojson_id: formData.selected_geojson_id,
-            }),
-            ...(formData.chart_type === ChartTypes.MAP &&
-              formData.layers?.[0]?.geojson_id && {
-                selected_geojson_id: formData.layers[0].geojson_id,
-              }),
-            ...(formData.chart_type === ChartTypes.MAP && {
-              ...(formData.geographic_column && { dimension_col: formData.geographic_column }),
-              ...((formData.aggregate_column || formData.value_column) && {
-                aggregate_col: formData.aggregate_column || formData.value_column,
-              }),
-            }),
-            // For table charts, include dimensions array with drill-down support
-            ...(formData.chart_type === ChartTypes.TABLE &&
-              formData.dimensions &&
-              formData.dimensions.length > 0 && {
-                dimensions: (() => {
-                  const isDrillDownEnabled = formData.dimensions.some(
-                    (dim) => dim.enable_drill_down === true
-                  );
-
-                  if (!isDrillDownEnabled) {
-                    // Show all dimensions if drill-down disabled
-                    return formData.dimensions.map((d) => d.column).filter(Boolean);
-                  }
-
-                  // When drill-down is enabled, only use dimensions with enable_drill_down
-                  const drillDownDimensions = formData.dimensions
-                    .filter((dim) => dim.enable_drill_down)
-                    .map((d) => d.column)
-                    .filter(Boolean);
-
-                  // When drill-down is enabled and active, use only the current level dimension
-                  if (tableDrillDownState) {
-                    const nextIndex = Math.min(
-                      tableDrillDownState.currentLevel + 1,
-                      drillDownDimensions.length - 1
-                    );
-                    return [drillDownDimensions[nextIndex]]; // Only current level
-                  }
-
-                  // Drill-down enabled but not yet started: use top-level dimension only
-                  return [drillDownDimensions[0]]; // Only first dimension
-                })(),
-                table_columns: formData.table_columns,
-              }),
-            // Include metrics for multiple metrics support
-            ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-            // Pivot table top-level fields — the /chart-data/ pipeline reads these off
-            // the payload root (not extra_config).
-            ...(formData.chart_type === 'pivot_table' &&
-              buildPivotDataFields(formData.extra_config)),
-            // Number formatting is frontend-only - exclude from API payload
-            ...(formData.chart_type !== ChartTypes.TABLE &&
-              formData.chart_type !== ChartTypes.PIVOT_TABLE && {
-                customizations: getApiCustomizations(formData.chart_type, formData.customizations),
-              }),
-            extra_config: {
-              filters: [
-                ...(formData.filters || []),
-                // Add drill-down filters from tableDrillDownState
-                ...(formData.chart_type === ChartTypes.TABLE && tableDrillDownState?.appliedFilters
-                  ? Object.entries(tableDrillDownState.appliedFilters).map(([column, value]) => ({
-                      column,
-                      operator: 'equals',
-                      value,
-                    }))
-                  : []),
-              ],
-              pagination: formData.pagination,
-              sort: formData.sort,
-              time_grain: formData.time_grain,
-              table_columns: formData.table_columns,
-            },
-          }
-        : null,
-    [
-      formData.chart_type,
-      formData.computation_type,
-      formData.schema_name,
-      formData.table_name,
-      formData.x_axis_column,
-      formData.y_axis_column,
-      formData.dimension_column,
-      formData.aggregate_column,
-      formData.aggregate_function,
-      formData.extra_dimension_column,
-      formData.geographic_column,
-      formData.value_column,
-      formData.selected_geojson_id,
-      formData.layers,
-      formData.dimensions,
-      formData.table_columns,
-      formData.metrics,
-      formData.customizations,
-      formData.filters,
-      formData.pagination,
-      formData.sort,
-      formData.time_grain,
-      formData.extra_config,
-      tableDrillDownState,
-    ]
+    () => buildChartDataPayload(config, tableDrill.tableDrillDownState, 'edit'),
+    [config, tableDrill.tableDrillDownState]
   );
 
-  // Fetch chart data (including tables)
-  const {
-    data: chartData,
-    error: chartDataError,
-    isLoading: chartDataLoading,
-  } = useChartData(formData.chart_type !== ChartTypes.MAP ? chartDataPayload : null);
+  const preview = useChartPreviewData({
+    config,
+    payload: chartDataPayload,
+    builder: 'edit',
+    pages,
+  });
 
-  // Track last valid chart config for better UX
-  useEffect(() => {
-    if (chartData?.echarts_config) {
-      setLastValidChartConfig(chartData.echarts_config);
-    }
-  }, [chartData?.echarts_config]);
+  const overlay = useConfigIncompleteOverlay({
+    config,
+    chartDataLoading: preview.chartDataLoading,
+    chartData: preview.chartData,
+  });
 
-  // Reset dismiss state when form configuration changes
-  useEffect(() => {
-    setErrorToastDismissed(false);
-  }, [
-    formData.chart_type,
-    formData.aggregate_function,
-    formData.aggregate_column,
-    formData.dimension_column,
-    formData.metrics,
-    formData.schema_name,
-    formData.table_name,
-  ]);
-
-  // Manage error toast visibility
-  useEffect(() => {
-    const hasBasicConfig = formData.schema_name && formData.table_name && formData.chart_type;
-    const isConfigIncomplete =
-      hasBasicConfig &&
-      !isChartDataReady() &&
-      formData.chart_type !== ChartTypes.MAP &&
-      formData.chart_type !== ChartTypes.TABLE;
-    const shouldShowToast = isConfigIncomplete && !chartDataLoading && !errorToastDismissed;
-
-    if (shouldShowToast && !errorToastVisible) {
-      setErrorToastVisible(true);
-    } else if (!isConfigIncomplete && errorToastVisible) {
-      setErrorToastVisible(false);
-    }
-  }, [
-    formData,
-    chartData,
-    chartDataLoading,
-    isChartDataReady,
-    errorToastVisible,
-    errorToastDismissed,
-  ]);
-
-  // Handle manual toast dismissal
-  const handleDismissToast = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setErrorToastVisible(false);
-    setErrorToastDismissed(true);
-  };
-
-  useEffect(() => {
-    // reset the chart data page size and limit when pagination changes
-    setDataPreviewPageSize(25);
-    setDataPreviewPage(1);
-  }, [formData.pagination?.page_size, formData.pagination?.enabled]);
-
-  // Drill-down functionality for maps - fetch regions
-  const countryCode = 'IND'; // TODO: make this dynamic based on selected geojson
-  const { data: states } = useRegions(countryCode, 'state');
-  const { data: districts } = useChildRegions(
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null,
-    drillDownPath.length > 0
-  );
-  const currentDrillDownRegionId =
-    drillDownPath.length > 0 ? drillDownPath[drillDownPath.length - 1].region_id : null;
-  const {
-    data: regionGeojsons,
-    error: regionGeojsonsError,
-    isLoading: regionGeojsonsLoading,
-  } = useRegionGeoJSONs(currentDrillDownRegionId);
-
-  // Dynamic GeoJSON ID based on drill-down state
-  const drillDownGeojsonResolution = useMemo(
-    () =>
-      resolveDrillDownGeoJSON({
-        isDrillDownActive: drillDownPath.length > 0,
-        regionId: currentDrillDownRegionId,
-        regionGeojsons,
-        regionGeojsonsLoading,
-        regionGeojsonsError,
-        fallbackGeojsonId: drillDownPath.length > 0 ? null : formData.selected_geojson_id,
-      }),
-    [
-      currentDrillDownRegionId,
-      drillDownPath.length,
-      formData.selected_geojson_id,
-      regionGeojsons,
-      regionGeojsonsError,
-      regionGeojsonsLoading,
-    ]
-  );
-  const activeGeojsonId =
-    formData.chart_type === ChartTypes.MAP ? drillDownGeojsonResolution.geojsonId : null;
-
-  // Dynamic map data overlay payload with drill-down filters
-  // Build map data overlay payload similar to view component (stable approach)
-  const activeMapMetricKey = JSON.stringify(formData.metrics?.[0] || {});
-  const activeDataOverlayPayload = useMemo(() => {
-    if (formData.chart_type !== ChartTypes.MAP || !formData.schema_name || !formData.table_name)
-      return null;
-
-    // Build filters from drill-down path
-    const filters: Record<string, string> = {};
-    if (drillDownPath.length > 0) {
-      drillDownPath.forEach((level) => {
-        level.parent_selections.forEach((selection) => {
-          filters[selection.column] = selection.value;
-        });
-      });
-    }
-
-    // Determine active geographic column (drill-down or base)
-    let activeGeographicColumn = formData.geographic_column;
-    if (drillDownPath.length > 0) {
-      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels?.length > 0;
-      const drillDownColumn = hasDynamicDrillDown
-        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-        : formData.district_column;
-
-      if (drillDownColumn) {
-        activeGeographicColumn = drillDownColumn;
-      }
-    }
-
-    const metric = formData.metrics?.[0];
-
-    return activeGeographicColumn
-      ? {
-          schema_name: formData.schema_name,
-          table_name: formData.table_name,
-          geographic_column: activeGeographicColumn,
-          metric,
-          value_column: formData.aggregate_column,
-          aggregate_function: formData.aggregate_function || (metric ? undefined : 'sum'),
-          filters: filters,
-          chart_filters: [] as any[],
-          chart_id: chartId ? parseInt(String(chartId)) : undefined,
-        }
-      : null;
-  }, [
-    formData.chart_type,
-    formData.schema_name,
-    formData.table_name,
-    formData.geographic_column,
-    formData.aggregate_column,
-    formData.aggregate_function,
-    formData.geographic_hierarchy,
-    formData.district_column,
-    drillDownPath,
+  // Map drill-down (regions requests, region click, breadcrumbs). Runs after the preview-data
+  // hook above; the requests are independent of each other.
+  const mapDrill = useMapDrillDown(config, 'edit');
+  const mapPreview = useBuilderMapPreview({
+    config,
+    builder: 'edit',
+    drillDownPath: mapDrill.drillDownPath,
     chartId,
-    activeMapMetricKey,
-  ]);
-
-  // Fetch GeoJSON data for maps (dynamic based on drill-down state)
-  const {
-    data: geojsonData,
-    error: geojsonDataError,
-    isLoading: geojsonDataLoading,
-  } = useGeoJSONData(activeGeojsonId);
-  const geojsonError = regionGeojsonsError || geojsonDataError;
-  const geojsonLoading = drillDownGeojsonResolution.isResolving || geojsonDataLoading;
-
-  // Fetch map data overlay (dynamic based on drill-down state)
-  const {
-    data: mapDataOverlay,
-    error: mapDataError,
-    isLoading: mapDataLoading,
-  } = useMapDataOverlay(activeDataOverlayPayload);
-
-  // Fetch data preview
-  const {
-    data: dataPreview,
-    error: previewError,
-    isLoading: previewLoading,
-  } = useChartDataPreview(
-    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null,
-    dataPreviewPage,
-    dataPreviewPageSize
-  );
-
-  // Fetch total rows for chart data preview pagination
-  const { data: chartDataTotalRows } = useChartDataPreviewTotalRows(
-    formData.chart_type !== ChartTypes.PIVOT_TABLE ? chartDataPayload : null
-  );
-
-  // Fetch raw table data
-  const {
-    data: rawTableData,
-    error: rawDataError,
-    isLoading: rawDataLoading,
-  } = useRawTableData(
-    formData.schema_name || null,
-    formData.table_name || null,
-    rawDataPage,
-    rawDataPageSize
-  );
-
-  // Use chart data preview for table charts (same as data preview)
-  const {
-    data: tableChartData,
-    error: tableChartError,
-    isLoading: tableChartLoading,
-  } = useChartDataPreview(
-    formData.chart_type === ChartTypes.TABLE ? chartDataPayload : null,
-    tableChartPage,
-    tableChartPageSize
-  );
-
-  // Get table count for raw data pagination
-  const { data: tableCount } = useTableCount(
-    formData.schema_name || null,
-    formData.table_name || null
-  );
-
-  // Handle drill-down region click
-  const handleRegionClick = useCallback(
-    (regionName: string, regionData: any) => {
-      // Check if drill-down is available - support both dynamic and legacy systems
-      const hasDynamicDrillDown = formData.geographic_hierarchy?.drill_down_levels.length > 0;
-      const hasLegacyDrillDown = formData.district_column;
-
-      if (!hasDynamicDrillDown && !hasLegacyDrillDown) {
-        return;
-      }
-
-      // Determine drill-down column based on system type
-      const drillDownColumn = hasDynamicDrillDown
-        ? formData.geographic_hierarchy.drill_down_levels[0]?.column
-        : formData.district_column;
-
-      if (!drillDownColumn) {
-        return;
-      }
-
-      // Find the region that was clicked
-      const clickedRegion = states?.find(
-        (state: any) => state.name === regionName || state.display_name === regionName
-      );
-
-      if (clickedRegion) {
-        const newDrillDownLevel = {
-          level: 1,
-          name: regionName,
-          geographic_column: drillDownColumn,
-          parent_selections: [
-            {
-              column: formData.geographic_column || '',
-              value: regionName,
-            },
-          ],
-          region_id: clickedRegion.id,
-        };
-
-        setDrillDownPath([newDrillDownLevel]);
-      }
-    },
-    [
-      formData.geographic_hierarchy,
-      formData.district_column,
-      formData.geographic_column,
-      states,
-      drillDownPath,
-    ]
-  );
-
-  // Handle drill-up to a specific level (consistent with view mode)
-  const handleDrillUp = useCallback((targetLevel: number) => {
-    if (targetLevel < 0) {
-      setDrillDownPath([]);
-    } else {
-      setDrillDownPath((prev) => prev.slice(0, targetLevel + 1));
-    }
-  }, []);
-
-  // Handle drill to home (going back to country level)
-  const handleDrillHome = useCallback(() => {
-    setDrillDownPath([]);
-  }, []);
+  });
 
   // Get all columns for raw data
-  const { data: columns } = useColumns(formData.schema_name || null, formData.table_name || null);
+  const { data: columns } = useColumns(config.schema_name || null, config.table_name || null);
 
-  const handleFormChange = useCallback((updates: Partial<ChartBuilderFormData>) => {
-    setFormData((prev) => {
-      // Smart chart type switching logic (same as ChartBuilder)
-      if (updates.chart_type && updates.chart_type !== prev.chart_type) {
-        const newChartType = updates.chart_type;
-        const oldChartType = prev.chart_type;
+  const { handleUpdateExisting, handleSaveAsNew, isMutating, isCreating } = useSaveExistingChart({
+    chartId,
+    config,
+    savedConfig,
+    markSaved,
+    nav,
+    isExitingAfterSave,
+    setIsExitingAfterSave,
+  });
 
-        // Smart column mapping based on chart type compatibility
-        const smartUpdates = { ...updates };
-
-        // Set computation_type based on chart type
-        if (newChartType === ChartTypes.NUMBER) {
-          smartUpdates.computation_type = 'aggregated';
-        } else if (newChartType === ChartTypes.MAP) {
-          smartUpdates.computation_type = 'aggregated';
-        } else if (newChartType === ChartTypes.TABLE) {
-          smartUpdates.computation_type = 'aggregated';
-        } else {
-          smartUpdates.computation_type = prev.computation_type || 'aggregated';
-        }
-
-        // Smart column mapping between chart types
-        if (oldChartType && oldChartType !== newChartType) {
-          // For aggregated chart types (bar, line, pie, number)
-          if (
-            (
-              [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-            ).includes(newChartType as ChartType)
-          ) {
-            if (oldChartType === ChartTypes.MAP) {
-              if (prev.geographic_column) smartUpdates.dimension_column = prev.geographic_column;
-              if (prev.value_column) smartUpdates.aggregate_column = prev.value_column;
-              if (prev.aggregate_function)
-                smartUpdates.aggregate_function = prev.aggregate_function;
-            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
-              if (prev.table_columns[0]) smartUpdates.dimension_column = prev.table_columns[0];
-              if (prev.table_columns[1]) smartUpdates.aggregate_column = prev.table_columns[1];
-              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
-            }
-          }
-          // For map charts
-          else if (newChartType === ChartTypes.MAP) {
-            if (
-              (
-                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-              ).includes(oldChartType as ChartType)
-            ) {
-              if (prev.dimension_column) smartUpdates.geographic_column = prev.dimension_column;
-              if (prev.aggregate_column) smartUpdates.value_column = prev.aggregate_column;
-              if (prev.aggregate_function)
-                smartUpdates.aggregate_function = prev.aggregate_function;
-              if (prev.metrics) smartUpdates.metrics = prev.metrics;
-            } else if (oldChartType === ChartTypes.TABLE && prev.table_columns?.length > 0) {
-              if (prev.table_columns[0]) smartUpdates.geographic_column = prev.table_columns[0];
-              if (prev.table_columns[1]) smartUpdates.value_column = prev.table_columns[1];
-              smartUpdates.aggregate_function = prev.aggregate_function || 'sum';
-            }
-          }
-
-          // For table charts
-          else if (newChartType === ChartTypes.TABLE) {
-            const tableColumns: string[] = [];
-
-            if (
-              (
-                [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.NUMBER] as ChartType[]
-              ).includes(oldChartType as ChartType)
-            ) {
-              let dimensionForTable = null;
-              if (prev.dimension_column && prev.dimension_column !== 'undefined') {
-                dimensionForTable = prev.dimension_column;
-              } else if (prev.x_axis_column && prev.x_axis_column !== 'undefined') {
-                dimensionForTable = prev.x_axis_column;
-              }
-
-              if (dimensionForTable) {
-                tableColumns.push(dimensionForTable);
-                smartUpdates.x_axis_column = dimensionForTable;
-              }
-              if (prev.aggregate_column && prev.aggregate_column !== prev.dimension_column) {
-                tableColumns.push(prev.aggregate_column);
-              }
-              if (prev.metrics) {
-                prev.metrics.forEach((metric) => {
-                  if (metric.column && !tableColumns.includes(metric.column)) {
-                    tableColumns.push(metric.column);
-                  }
-                });
-              }
-            } else if (oldChartType === ChartTypes.MAP) {
-              if (prev.geographic_column) {
-                tableColumns.push(prev.geographic_column);
-                smartUpdates.x_axis_column = prev.geographic_column;
-              }
-              if (prev.value_column && prev.value_column !== prev.geographic_column) {
-                tableColumns.push(prev.value_column);
-              }
-            }
-
-            if (tableColumns.length > 0) {
-              smartUpdates.table_columns = tableColumns;
-            }
-          }
-        }
-
-        // Merge customizations intelligently
-        const existingCustomizations = prev.customizations || {};
-        const newDefaults = getDefaultCustomizations(newChartType);
-
-        const preservedFields: Record<string, any> = {};
-        ['showTooltip', 'showLegend', 'showDataLabels'].forEach((field) => {
-          if (field in existingCustomizations && field in newDefaults) {
-            preservedFields[field] = existingCustomizations[field];
-          }
-        });
-        ['xAxisTitle', 'yAxisTitle', 'subtitle'].forEach((field) => {
-          if (existingCustomizations[field]?.trim()) {
-            preservedFields[field] = existingCustomizations[field];
-          }
-        });
-        if (existingCustomizations.dataLabelPosition && newDefaults.dataLabelPosition) {
-          preservedFields.dataLabelPosition = existingCustomizations.dataLabelPosition;
-        }
-
-        smartUpdates.customizations = {
-          ...newDefaults,
-          ...preservedFields,
-        };
-
-        return { ...prev, ...smartUpdates };
-      }
-
-      // Regular form update without chart type change
-      return { ...prev, ...updates };
-    });
-  }, []);
-
-  const handleDataPreviewPageSizeChange = (newPageSize: number) => {
-    setDataPreviewPageSize(newPageSize);
-    setDataPreviewPage(1); // Reset to first page when page size changes
-  };
-
-  const handleTableChartPageSizeChange = (newPageSize: number) => {
-    setTableChartPageSize(newPageSize);
-    setTableChartPage(1); // Reset to first page when page size changes
-  };
-
-  // Handle table row click for drill-down
-  const handleTableRowClick = useCallback(
-    (rowData: Record<string, any>, columnName: string) => {
-      if (formData.chart_type !== ChartTypes.TABLE) return;
-
-      // Check if drill-down is enabled
-      const isDrillDownEnabled = formData.dimensions?.some((dim) => dim.enable_drill_down === true);
-
-      if (!isDrillDownEnabled) return;
-
-      // Get all dimensions in order (only those with drill-down enabled)
-      const allDimensions =
-        formData.dimensions
-          ?.filter((dim) => dim.enable_drill_down)
-          .map((d) => d.column)
-          .filter(Boolean) || [];
-
-      if (allDimensions.length === 0) return;
-
-      // Get the current dimension index
-      const currentDimensionIndex = tableDrillDownState ? tableDrillDownState.currentLevel : -1;
-
-      // Determine which dimension column is currently displayed
-      const currentDisplayedDimension =
-        currentDimensionIndex === -1 ? allDimensions[0] : allDimensions[currentDimensionIndex + 1];
-
-      // Only allow clicking on the currently displayed dimension column
-      if (columnName !== currentDisplayedDimension) {
-        return;
-      }
-
-      // Get the value from the clicked row
-      const clickedValue = rowData[columnName];
-      if (!clickedValue) return;
-
-      // Update drill-down state
-      const newLevel = currentDimensionIndex + 1;
-      const newAppliedFilters = {
-        ...(tableDrillDownState?.appliedFilters || {}),
-        [currentDisplayedDimension]: String(clickedValue),
-      };
-
-      // If we've reached the last dimension, don't allow further drill-down
-      if (newLevel >= allDimensions.length - 1) {
-        return;
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-
-      // Reset to first page when drilling down
-      setTableChartPage(1);
-    },
-    [formData.chart_type, formData.dimensions, tableDrillDownState]
-  );
-
-  // Handle table drill-up (going back)
-  const handleTableDrillUp = useCallback(() => {
-    if (!tableDrillDownState) return;
-
-    const newLevel = tableDrillDownState.currentLevel - 1;
-    const allDimensions =
-      formData.dimensions
-        ?.filter((dim) => dim.enable_drill_down)
-        .map((d) => d.column)
-        .filter(Boolean) || [];
-
-    if (newLevel < 0) {
-      // Reset to top level
-      setTableDrillDownState(null);
-    } else {
-      // Go back one level
-      const newAppliedFilters: Record<string, string> = {};
-      for (let i = 0; i <= newLevel; i++) {
-        const dimColumn = allDimensions[i];
-        if (tableDrillDownState.appliedFilters[dimColumn]) {
-          newAppliedFilters[dimColumn] = tableDrillDownState.appliedFilters[dimColumn];
-        }
-      }
-
-      setTableDrillDownState({
-        currentLevel: newLevel,
-        appliedFilters: newAppliedFilters,
-      });
-    }
-
-    // Reset to first page when drilling up
-    setTableChartPage(1);
-  }, [tableDrillDownState, formData.dimensions]);
-
-  const handleRawDataPageSizeChange = (newPageSize: number) => {
-    setRawDataPageSize(newPageSize);
-    setRawDataPage(1); // Reset to first page when page size changes
-  };
-
-  const isFormValid = () => {
-    if (!formData.title || !formData.chart_type || !formData.schema_name || !formData.table_name) {
-      return false;
-    }
-
-    if (formData.chart_type === ChartTypes.NUMBER) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          metric.column_expression ||
-          (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      const metric = formData.metrics?.[0];
-      if (metric) {
-        return !!(
-          formData.geographic_column &&
-          formData.selected_geojson_id &&
-          (metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column)))
-        );
-      }
-      // Legacy charts saved before the metrics array existed
-      // Count(*) doesn't need a value_column, similar to other chart types
-      const needsValueColumn = formData.aggregate_function?.toLowerCase() !== 'count';
-      return !!(
-        formData.geographic_column &&
-        (!needsValueColumn || formData.value_column) &&
-        formData.aggregate_function &&
-        formData.selected_geojson_id
-      );
-    }
-
-    if (formData.chart_type === ChartTypes.TABLE) {
-      return true; // Table charts only need basic fields (title, chart_type, schema, table)
-    }
-
-    if (formData.chart_type === 'pivot_table') {
-      // Presence alone isn't enough — each metric must be a valid definition
-      // (mirrors the create-flow pivot predicate).
-      const hasRowDimensions = (formData.extra_config?.row_dimensions || []).length > 0;
-      const hasValidMetrics =
-        (formData.metrics || []).length > 0 &&
-        formData.metrics!.every(
-          (metric) =>
-            metric.column_expression ||
-            (metric.aggregation && (metric.aggregation.toLowerCase() === 'count' || metric.column))
-        );
-      return hasRowDimensions && hasValidMetrics;
-    }
-
-    {
-      // For bar/line/table charts with multiple metrics
-      if (
-        (
-          [ChartTypes.BAR, ChartTypes.LINE, ChartTypes.PIE, ChartTypes.TABLE] as ChartType[]
-        ).includes(formData.chart_type as ChartType) &&
-        formData.metrics &&
-        formData.metrics.length > 0
-      ) {
-        return !!(
-          formData.dimension_column &&
-          formData.metrics.every(
-            (metric) =>
-              metric.column_expression ||
-              (metric.aggregation &&
-                (metric.aggregation.toLowerCase() === 'count' || metric.column))
-          )
-        );
-      }
-
-      // Legacy single metric approach
-      const needsAggregateColumn = formData.aggregate_function !== 'count';
-      return !!(
-        formData.dimension_column &&
-        formData.aggregate_function &&
-        (!needsAggregateColumn || formData.aggregate_column)
-      );
-    }
-  };
-
-  // Helper to convert simplified drill-down selections to layers structure (same as ChartBuilder)
-  const convertSimplifiedToLayers = (formData: ChartBuilderFormData) => {
-    const layers = [];
-    let layerIndex = 0;
-
-    // Level 0: Always include the main geographic column (states/counties/provinces)
-    if (formData.geographic_column) {
-      layers.push({
-        id: layerIndex.toString(),
-        level: layerIndex,
-        geographic_column: formData.geographic_column,
-        geojson_id: formData.selected_geojson_id,
-        selected_regions: [] as any[], // Allow all regions by default
-      });
-      layerIndex++;
-    }
-
-    // Level 1+: Add additional levels based on simplified fields
-    const additionalLevels = [
-      { field: 'district_column', name: 'District Level' },
-      { field: 'ward_column', name: 'Ward Level' },
-      { field: 'subward_column', name: 'Sub-Ward Level' },
-      // Future: can add more levels here easily
-    ];
-
-    additionalLevels.forEach((level) => {
-      if ((formData as any)[level.field] && (formData as any)[level.field].trim() !== '') {
-        layers.push({
-          id: layerIndex.toString(),
-          level: layerIndex,
-          geographic_column: (formData as any)[level.field],
-          selected_regions: [], // Allow all regions for drill-down
-          parent_selections: [], // Will be populated during drill-down
-        });
-        layerIndex++;
-      }
-    });
-
-    return layers.length > 0 ? layers : undefined;
-  };
-
-  // Helper to build chart data from form
-  const buildChartData = (): ChartCreate => {
-    // For map charts, process layers and simplified drill-down
-    let selectedGeojsonId = formData.selected_geojson_id;
-    let layersToSave = formData.layers;
-
-    if (formData.chart_type === ChartTypes.MAP) {
-      // Check if we have simplified drill-down fields to convert
-      const hasSimplifiedFields =
-        formData.geographic_column &&
-        (formData.district_column || formData.ward_column || formData.subward_column);
-
-      if (hasSimplifiedFields) {
-        layersToSave = convertSimplifiedToLayers(formData);
-      }
-
-      // Backward compatibility: set selectedGeojsonId from first layer
-      if (layersToSave && layersToSave.length > 0) {
-        const firstLayer = layersToSave[0];
-        if (firstLayer.geojson_id) {
-          selectedGeojsonId = firstLayer.geojson_id;
-        }
-      }
-    }
-
-    return {
-      title: formData.title!,
-      chart_type: formData.chart_type!,
-      computation_type: formData.computation_type!,
-      schema_name: formData.schema_name!,
-      table_name: formData.table_name!,
-      extra_config: {
-        x_axis_column: formData.x_axis_column,
-        y_axis_column: formData.y_axis_column,
-        dimension_column: formData.dimension_column,
-        aggregate_column: formData.aggregate_column,
-        aggregate_function: formData.aggregate_function,
-        extra_dimension_column: formData.extra_dimension_column,
-        geographic_column: formData.geographic_column,
-        value_column: formData.value_column,
-        selected_geojson_id: selectedGeojsonId,
-        layers: layersToSave,
-        // Simplified drill-down fields
-        district_column: formData.district_column,
-        ward_column: formData.ward_column,
-        subward_column: formData.subward_column,
-        drill_down_enabled: formData.drill_down_enabled,
-        // Include geographic_hierarchy to preserve drill-down configuration
-        geographic_hierarchy: formData.geographic_hierarchy,
-        customizations: formData.customizations,
-        filters: formData.filters,
-        pagination: formData.pagination,
-        sort: formData.sort,
-        time_grain: formData.time_grain,
-        // Include table_columns for table charts
-        table_columns: formData.table_columns,
-        // Include metrics for multiple metrics support
-        ...(formData.metrics && formData.metrics.length > 0 && { metrics: formData.metrics }),
-        // ✅ FIX: Include dimensions and dimension_columns for table charts
-        ...(formData.chart_type === ChartTypes.TABLE && {
-          // Always include dimensions array (even if empty) to ensure structure is consistent
-          dimensions:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions
-                  .filter((dim) => dim.column && dim.column.trim() !== '')
-                  .map((dim) => ({
-                    column: dim.column,
-                    enable_drill_down: Boolean(dim.enable_drill_down === true),
-                  }))
-              : [],
-          // Always include dimension_columns array for backward compatibility
-          dimension_columns:
-            formData.dimensions && formData.dimensions.length > 0
-              ? formData.dimensions.map((d) => d.column).filter(Boolean)
-              : [],
-        }),
-        // Pivot table extra_config fields (source of truth persisted on the chart)
-        ...(formData.chart_type === 'pivot_table' && buildPivotExtraConfig(formData.extra_config)),
-      },
-    };
-  };
-
-  // Handle updating existing chart
-  const handleUpdateExisting = async () => {
-    if (!isFormValid()) {
-      return;
-    }
-
-    try {
-      const chartData = buildChartData();
-      const updateData: ChartUpdate = {
-        title: chartData.title,
-        chart_type: chartData.chart_type,
-        computation_type: chartData.computation_type,
-        schema_name: chartData.schema_name,
-        table_name: chartData.table_name,
-        extra_config: chartData.extra_config,
-      };
-
-      await updateChart({
-        id: chartId,
-        data: updateData,
-      });
-      trackEvent(ANALYTICS_EVENTS.CHART_UPDATED, {
-        chart_type: chartData.chart_type,
-        chart_id: chartId,
-        ...getMetricAnalyticsProps(formData.metrics),
-        drill_down_enabled: isDrillDownEnabled(formData),
-      });
-      // Only metrics this edit newly attached — otherwise every re-save of an
-      // unchanged chart would re-report the same metrics as freshly used.
-      getNewlyUsedSavedMetricIds(formData.metrics, originalFormData?.metrics).forEach(
-        (metricId) => {
-          trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
-            metric_id: metricId,
-            chart_id: chartId,
-            source: METRIC_USE_SOURCES.CHART,
-          });
-        }
-      );
-
-      // Update original data to reflect saved state
-      setOriginalFormData({ ...formData });
-
-      toastSuccess.updated('Chart');
-
-      if (isExitingAfterSave) {
-        setIsExitingAfterSave(false);
-        navigateToOrigin();
-      } else {
-        navigateToChartDetail(chartId);
-      }
-    } catch (err) {
-      toastError.update(err, 'chart');
-    }
-  };
-
-  // Handle saving as new chart
-  const handleSaveAsNew = async (newTitle: string) => {
-    if (!isFormValid()) {
-      return;
-    }
-
-    try {
-      const chartData = buildChartData();
-      const newChartData: ChartCreate = {
-        ...chartData,
-        title: newTitle,
-      };
-
-      const result = await createChart(newChartData);
-      // Save-as-new creates a chart, so it fires CHART_CREATED like every other
-      // create path — `source` is what distinguishes it.
-      trackEvent(ANALYTICS_EVENTS.CHART_CREATED, {
-        chart_type: newChartData.chart_type,
-        chart_id: result.id,
-        source: CHART_CREATE_SOURCES.SAVE_AS_NEW,
-        ...getMetricAnalyticsProps(formData.metrics),
-        drill_down_enabled: isDrillDownEnabled(formData),
-      });
-      getUsedSavedMetricIds(formData.metrics).forEach((metricId) => {
-        trackEvent(ANALYTICS_EVENTS.METRIC_USED, {
-          metric_id: metricId,
-          chart_id: result.id,
-          source: METRIC_USE_SOURCES.CHART,
-        });
-      });
-
-      toastSuccess.created(`Chart "${newTitle}"`);
-
-      if (isExitingAfterSave) {
-        setIsExitingAfterSave(false);
-        navigateToOrigin();
-      } else {
-        navigateToChartDetail(result.id);
-      }
-    } catch (err) {
-      toastError.create(err, 'chart');
-    }
-  };
+  const isFormValid = () => canSaveChart(config);
 
   // Show save options dialog
   const handleSave = () => {
@@ -1516,9 +156,19 @@ function EditChartPageContent() {
     setShowSaveDialog(true);
   };
 
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      guard.askToLeave('back');
+    } else if (hasNavigationSource) {
+      router.back();
+    } else {
+      router.push(chartDetailUrl(chartId));
+    }
+  };
+
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      setShowExitDialog(true);
+      guard.askToLeave('exit');
     } else if (hasNavigationSource) {
       router.back();
     } else {
@@ -1534,505 +184,127 @@ function EditChartPageContent() {
     // Mark that we're exiting after save
     setIsExitingAfterSave(true);
     // Close exit dialog and show save options dialog
-    setShowExitDialog(false);
+    guard.closeLeavePrompt();
     setShowSaveDialog(true);
   };
 
   const handleLeaveWithoutSaving = () => {
-    setShowExitDialog(false);
+    guard.closeLeavePrompt();
     if (hasNavigationSource) {
-      navigateBackWithoutWarning();
+      nav.navigateBackWithoutWarning();
     } else {
       router.push(chartDetailUrl(chartId));
     }
   };
 
-  const handleStayOnPage = () => {
-    setShowExitDialog(false);
+  const handleConfirmBack = () => {
+    guard.closeLeavePrompt();
+    if (hasNavigationSource) {
+      nav.navigateBackWithoutWarning();
+    } else {
+      nav.navigateWithoutWarning(chartDetailUrl(chartId));
+    }
   };
 
   // Per-resource access denied — chart loaded but caller lacks edit on THIS chart.
   // (Gated after load so the loading skeleton doesn't briefly flash the denied UI.)
   if (!chartLoading && chart && !canEditThisChart) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-4">You don't have edit access to this chart.</p>
-          <Button variant="outline" onClick={() => router.push('/charts')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Charts
-          </Button>
-        </div>
-      </div>
-    );
+    return <EditChartAccessDenied onBack={() => router.push('/charts')} />;
   }
 
   if (chartLoading) {
-    return (
-      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <div className="flex-1 flex overflow-hidden p-8">
-          <div className="flex w-full h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Skeleton className="w-[30%] h-full" />
-            <Skeleton className="w-[70%] h-full" />
-          </div>
-        </div>
-      </div>
-    );
+    return <EditChartLoading />;
   }
 
   if (chartError || (!chart && !chartLoading && chartId && chartId > 0)) {
-    return (
-      <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-          <h1 className="text-xl font-semibold">Edit Chart</h1>
-        </div>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <Alert className="max-w-2xl">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {chartError ? 'Chart needs attention' : 'Chart not found'}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
+    return <EditChartNotFound hasError={!!chartError} />;
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gray-50">
-      {/* Single Header with Everything */}
-      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Back Button */}
-            <Button
-              data-testid="chart-edit-back-button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  setUnsavedChangesDialog({
-                    open: true,
-                    onConfirm: () => {
-                      setUnsavedChangesDialog({
-                        open: false,
-                        onConfirm: () => {},
-                        onCancel: () => {},
-                      });
-                      if (hasNavigationSource) {
-                        navigateBackWithoutWarning();
-                      } else {
-                        navigateWithoutWarning(chartDetailUrl(chartId));
-                      }
-                    },
-                    onCancel: () => {
-                      setUnsavedChangesDialog({
-                        open: false,
-                        onConfirm: () => {},
-                        onCancel: () => {},
-                      });
-                    },
-                  });
-                } else if (hasNavigationSource) {
-                  router.back();
-                } else {
-                  router.push(chartDetailUrl(chartId));
-                }
-              }}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {navigationSource ? getWidgetBackLabel(navigationSource) : 'Back'}
-            </Button>
-
-            {/* Chart Title Input */}
-            <Input
-              value={formData.title}
-              onChange={(e) => handleFormChange({ title: e.target.value })}
-              className="text-lg font-semibold border border-gray-200 shadow-sm px-4 py-2 h-11 bg-white min-w-[300px]"
-              placeholder="Untitled Chart"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Button
-              data-testid="chart-edit-cancel-button"
-              variant="cancel"
-              onClick={handleCancel}
-              disabled={isMutating || isCreating}
-              className="px-8 h-11"
-            >
-              Cancel
-            </Button>
-            <Button
-              data-testid="chart-edit-save-button"
-              onClick={handleSave}
-              variant="primary"
-              disabled={!isFormValid() || isMutating || isCreating}
-              className="px-8 h-11"
-            >
-              {isMutating || isCreating ? 'Saving...' : 'Save Chart'}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area with 2rem margin container */}
-      <div className="p-8 h-[calc(100vh-144px)]">
-        <div className="flex h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-          {/* Left Panel - 30% */}
-          <div className="w-[30%] border-r">
-            <Tabs defaultValue="configuration" onValueChange={handleTabView} className="h-full">
-              <div className="px-4 pt-4">
-                <TabsList className="grid w-full h-11 grid-cols-2">
-                  <TabsTrigger
-                    value="configuration"
-                    className="flex items-center justify-center gap-2 text-sm h-full"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    Data Configuration
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="styling"
-                    className="flex items-center justify-center gap-2 text-sm h-full"
-                  >
-                    <Database className="h-4 w-4" />
-                    Chart Styling
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent
-                value="configuration"
-                className="mt-6 h-[calc(100%-73px)] overflow-y-auto"
-              >
-                <div className="p-4">
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <MapDataConfigurationV3
-                      formData={formData}
-                      onFormDataChange={handleFormChange}
-                    />
-                  ) : (
-                    <ChartDataConfigurationV3
-                      formData={formData}
-                      onChange={handleFormChange}
-                      disabled={false}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="styling" className="mt-0 flex-1 overflow-y-auto">
-                <div className="p-4">
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <MapCustomizations formData={formData} onFormDataChange={handleFormChange} />
-                  ) : (
-                    <ChartCustomizations
-                      chartType={formData.chart_type || ChartTypes.BAR}
-                      formData={formData}
-                      onChange={handleFormChange}
-                      columns={columns}
-                      currentDrillLevel={
-                        tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
-                      }
-                    />
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Right Panel - 70% */}
-          <div className="w-[70%]">
-            <Tabs value={activeTab} onValueChange={handlePreviewTabChange} className="h-full">
-              <div className="px-4">
-                <TabsList className="grid grid-cols-2">
-                  <TabsTrigger value="chart" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" />
-                    CHART
-                  </TabsTrigger>
-                  <TabsTrigger value="data" className="flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    DATA
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="chart" className="h-[calc(100%-73px)] overflow-y-auto relative">
-                <div className="p-4 h-full relative">
-                  {/* Configuration error toast - properly centered in chart area with working click */}
-                  {errorToastVisible && (
-                    <div
-                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-auto cursor-pointer"
-                      style={{
-                        zIndex: 9999,
-                        width: '90%',
-                        maxWidth: '24rem',
-                      }}
-                      onClick={handleDismissToast}
-                    >
-                      <Alert
-                        variant="destructive"
-                        className="shadow-2xl animate-in slide-in-from-top-2 duration-300 hover:shadow-3xl transition-all border-2 border-red-300 bg-red-50 cursor-pointer"
-                      >
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          Please check the dataset or metric column to complete the chart
-                          configuration
-                          <div className="text-xs text-red-600 mt-2 font-medium">
-                            ✕ Click to dismiss
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-
-                  {/* Chart content area - always full size */}
-                  {formData.chart_type === ChartTypes.MAP ? (
-                    <div className="w-full h-full">
-                      <MapPreview
-                        geojsonData={geojsonData?.geojson_data}
-                        geojsonLoading={geojsonLoading}
-                        geojsonError={geojsonError}
-                        mapData={mapDataOverlay?.data}
-                        mapDataLoading={mapDataLoading}
-                        mapDataError={mapDataError}
-                        valueColumn={formData.metrics?.[0]?.alias || formData.aggregate_column}
-                        customizations={formData.customizations}
-                        onRegionClick={handleRegionClick}
-                        drillDownPath={drillDownPath}
-                        onDrillUp={handleDrillUp}
-                        onDrillHome={handleDrillHome}
-                      />
-                    </div>
-                  ) : formData.chart_type === ChartTypes.TABLE ? (
-                    <div className="w-full h-full flex flex-col">
-                      {/* Breadcrumb navigation for drill-down */}
-                      {tableDrillDownState && (
-                        <div className="px-4 py-2 border-b bg-gray-50 flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleTableDrillUp}
-                            className="h-8"
-                          >
-                            ← Back
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            {Object.entries(tableDrillDownState.appliedFilters)
-                              .map(([col, val]) => `${col}: ${val}`)
-                              .join(' → ')}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 overflow-hidden">
-                        <TableChart
-                          data={Array.isArray(tableChartData?.data) ? tableChartData.data : []}
-                          config={{
-                            table_columns: (() => {
-                              const cols = tableChartData?.columns || formData.table_columns || [];
-                              const drillDownDimensions =
-                                formData.dimensions
-                                  ?.filter((d) => d.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean) || [];
-                              const currentDim = tableDrillDownState
-                                ? drillDownDimensions[tableDrillDownState.currentLevel + 1]
-                                : drillDownDimensions[0];
-                              return resolveTableColumnOrder({
-                                cols,
-                                savedOrder: formData.customizations?.columnOrder,
-                                drillDownDimensions,
-                                currentDimensionColumn: currentDim,
-                              });
-                            })(),
-                            column_formatting: mergeTableColumnFormatting(formData.customizations),
-                            sort: formData.sort,
-                            pagination: formData.pagination || { enabled: true, page_size: 20 },
-                            conditionalFormatting:
-                              formData.customizations?.conditionalFormatting || [],
-                            columnAlignment: formData.customizations?.columnAlignment || {},
-                            zebraRows: formData.customizations?.zebraRows ?? true,
-                            freezeFirstColumn: formData.customizations?.freezeFirstColumn || false,
-                            theme: formData.customizations?.theme,
-                          }}
-                          isLoading={tableChartLoading}
-                          error={tableChartError}
-                          pagination={
-                            chartDataPayload
-                              ? {
-                                  page: tableChartPage,
-                                  pageSize: tableChartPageSize,
-                                  total: chartDataTotalRows || 0,
-                                  onPageChange: setTableChartPage,
-                                  onPageSizeChange: handleTableChartPageSizeChange,
-                                }
-                              : undefined
-                          }
-                          onRowClick={handleTableRowClick}
-                          drillDownEnabled={formData.dimensions?.some(
-                            (dim) => dim.enable_drill_down === true
-                          )}
-                          currentDimensionColumn={
-                            tableDrillDownState
-                              ? formData.dimensions
-                                  ?.filter((dim) => dim.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean)[tableDrillDownState.currentLevel + 1]
-                              : formData.dimensions
-                                  ?.filter((dim) => dim.enable_drill_down)
-                                  .map((d) => d.column)
-                                  .filter(Boolean)[0]
-                          }
-                          currentDrillLevel={
-                            tableDrillDownState ? tableDrillDownState.currentLevel + 1 : 0
-                          }
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full">
-                      <ChartPreview
-                        key={`${formData.schema_name}-${formData.table_name}`}
-                        config={
-                          formData.chart_type === 'pivot_table'
-                            ? { extra_config: formData.extra_config }
-                            : chartData?.echarts_config || lastValidChartConfig
-                        }
-                        tableData={
-                          formData.chart_type === 'pivot_table' ? chartData?.data : undefined
-                        }
-                        isLoading={chartDataLoading}
-                        error={null} // Error handled by toast
-                        chartType={formData.chart_type}
-                        customizations={formData.customizations}
-                      />
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="data" className="h-[calc(100%-73px)] overflow-hidden">
-                <div className="p-4 h-full">
-                  <Tabs
-                    defaultValue={
-                      formData.chart_type === ChartTypes.TABLE ||
-                      formData.chart_type === ChartTypes.PIVOT_TABLE
-                        ? 'raw-data'
-                        : 'chart-data'
-                    }
-                    className="h-full flex flex-col"
-                  >
-                    <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-                      <TabsTrigger value="chart-data" className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        Chart Data
-                      </TabsTrigger>
-                      <TabsTrigger value="raw-data" className="flex items-center gap-2">
-                        <Database className="h-4 w-4" />
-                        Raw Data
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="chart-data" className="flex-1 overflow-auto">
-                      {formData.chart_type === ChartTypes.PIVOT_TABLE ? (
-                        <ChartPreview
-                          config={{ extra_config: formData.extra_config }}
-                          tableData={chartData?.data}
-                          isLoading={chartDataLoading}
-                          error={null}
-                          chartType={formData.chart_type}
-                          customizations={formData.customizations}
-                        />
-                      ) : (
-                        <DataPreview
-                          data={Array.isArray(dataPreview?.data) ? dataPreview.data : []}
-                          columns={dataPreview?.columns || []}
-                          columnTypes={dataPreview?.column_types || {}}
-                          isLoading={previewLoading}
-                          error={previewError}
-                          pagination={{
-                            page: dataPreviewPage,
-                            pageSize: dataPreviewPageSize,
-                            total: chartDataTotalRows || 0,
-                            onPageChange: setDataPreviewPage,
-                            onPageSizeChange: handleDataPreviewPageSizeChange,
-                          }}
-                        />
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="raw-data" className="flex-1 overflow-auto">
-                      <DataPreview
-                        data={Array.isArray(rawTableData) ? rawTableData : []}
-                        columns={
-                          rawTableData && rawTableData.length > 0
-                            ? Object.keys(rawTableData[0])
-                            : []
-                        }
-                        columnTypes={{}}
-                        isLoading={rawDataLoading}
-                        error={rawDataError}
-                        pagination={
-                          tableCount
-                            ? {
-                                page: rawDataPage,
-                                pageSize: rawDataPageSize,
-                                total: tableCount.total_rows || 0,
-                                onPageChange: setRawDataPage,
-                                onPageSizeChange: handleRawDataPageSizeChange,
-                              }
-                            : undefined
-                        }
-                      />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </div>
-
-      {/* Save Options Dialog */}
-      <SaveOptionsDialog
-        open={showSaveDialog}
-        onOpenChange={setShowSaveDialog}
-        originalTitle={formData.title || ''}
-        onSaveExisting={handleUpdateExisting}
-        onSaveAsNew={handleSaveAsNew}
-        isLoading={isMutating || isCreating}
-      />
-
-      {/* Exit Dialog - Save, Leave, or Stay */}
-      <UnsavedChangesExitDialog
-        open={showExitDialog}
-        onOpenChange={setShowExitDialog}
-        onSave={handleSaveAndLeave}
-        onLeave={handleLeaveWithoutSaving}
-        onStay={handleStayOnPage}
-        isSaving={isMutating}
-      />
-
-      {/* Unsaved Changes Dialog (for browser navigation) */}
-      <ConfirmationDialog
-        open={unsavedChangesDialog.open}
-        onOpenChange={(open) => setUnsavedChangesDialog((prev) => ({ ...prev, open }))}
-        title="Unsaved Changes"
-        description="You have unsaved changes. Are you sure you want to leave without saving?"
-        confirmText="Leave Without Saving"
-        cancelText="Cancel"
-        type="warning"
-        onConfirm={unsavedChangesDialog.onConfirm}
-        onCancel={unsavedChangesDialog.onCancel}
-      />
-    </div>
+    <ChartBuilderLayout
+      builder="edit"
+      header={
+        <EditChartHeader
+          backLabel={navigationSource ? getWidgetBackLabel(navigationSource) : 'Back'}
+          title={config.title}
+          onTitleChange={(title) => patchConfig({ title })}
+          onBack={handleBack}
+          onCancel={handleCancel}
+          onSave={handleSave}
+          canSave={isFormValid()}
+          isBusy={isMutating || isCreating}
+        />
+      }
+      onConfigTabChange={handleTabView}
+      dataConfigPanel={
+        config.chart_type === ChartTypes.MAP ? (
+          <MapDataConfiguration formData={config} onFormDataChange={patchConfig} />
+        ) : (
+          <ChartDataConfiguration formData={config} onChange={patchConfig} disabled={false} />
+        )
+      }
+      stylingPanel={
+        config.chart_type === ChartTypes.MAP ? (
+          <MapCustomizations formData={config} onFormDataChange={patchConfig} />
+        ) : (
+          <ChartCustomizations
+            chartType={config.chart_type || ChartTypes.BAR}
+            formData={config}
+            onChange={patchConfig}
+            columns={columns}
+            currentDrillLevel={tableDrill.currentDrillLevel}
+          />
+        )
+      }
+      previewTab={activeTab}
+      onPreviewTabChange={handlePreviewTabChange}
+      chartOverlay={
+        /* Configuration error toast - properly centered in chart area with working click */
+        overlay.isVisible && <ConfigIncompleteOverlay onDismiss={overlay.dismiss} />
+      }
+      chartPanel={
+        <BuilderChartPanel
+          builder="edit"
+          config={config}
+          map={{ ...mapPreview, ...mapDrill }}
+          table={{
+            drill: tableDrill,
+            data: preview.tableChartData,
+            isLoading: preview.tableChartLoading,
+            error: preview.tableChartError,
+            page: pages.tableChart,
+            total: preview.chartDataTotalRows || 0,
+            showPagination: !!chartDataPayload,
+          }}
+          chart={{
+            data: preview.chartData,
+            isLoading: preview.chartDataLoading,
+            error: preview.chartDataError,
+            lastValidConfig: preview.lastValidChartConfig,
+          }}
+        />
+      }
+      dataPanel={
+        <BuilderDataPanel builder="edit" config={config} preview={preview} pages={pages} />
+      }
+      dialogs={
+        <EditChartDialogs
+          title={config.title}
+          showSaveDialog={showSaveDialog}
+          onSaveDialogChange={setShowSaveDialog}
+          onSaveExisting={handleUpdateExisting}
+          onSaveAsNew={handleSaveAsNew}
+          isSaving={isMutating || isCreating}
+          isMutating={isMutating}
+          leaveTarget={guard.leaveTarget}
+          onCloseLeavePrompt={guard.closeLeavePrompt}
+          onSaveAndLeave={handleSaveAndLeave}
+          onLeave={handleLeaveWithoutSaving}
+          onStay={guard.closeLeavePrompt}
+          onConfirmBack={handleConfirmBack}
+        />
+      }
+    />
   );
 }
 

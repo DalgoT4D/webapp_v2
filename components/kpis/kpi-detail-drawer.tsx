@@ -33,7 +33,7 @@ import {
   updateAnnotation,
   deleteAnnotation,
 } from '@/hooks/api/useKPIs';
-import type { KPI, NoteType, KPICustomizations } from '@/types/kpis';
+import type { KPI, NoteType, KPICustomizations, KPIDataPayload } from '@/types/kpis';
 import type { RAGStatus } from '@/types/kpis';
 import { RAG_COLORS, TIME_GRAIN_OPTIONS } from '@/types/kpis';
 import { formatDistanceToNow } from 'date-fns';
@@ -43,7 +43,7 @@ import { ALERT_CREATE_SOURCES, ANALYTICS_EVENTS } from '@/constants/analytics';
 import { cn } from '@/lib/utils';
 import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
-import { ShareModal } from '@/components/ui/share-modal';
+import { ShareModal } from '@/components/share/ShareModal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { targetGapLabel } from '@/lib/kpi-rag';
 
@@ -76,7 +76,7 @@ function TrendChart({
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
   useEffect(() => {
-    if (!chartRef.current || !config || Object.keys(config).length === 0) return;
+    if (!chartRef.current || !config || Object.keys(config).length === 0) return undefined;
 
     if (chartInstance.current) {
       chartInstance.current.dispose();
@@ -177,7 +177,7 @@ export function KPIDetailDrawer({
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
   const currentValue = chartData?.current_value;
   const targetGap = ragStatus === 'amber' ? targetGapLabel(currentValue, kpi.target_value) : null;
-  const periods = chartData?.periods || [];
+  const periods: KPIDataPayload['periods'] = chartData?.periods || [];
 
   const lastTwo = periods.slice(-2).map((p) => p.value);
   const popChange = computePopChanges(lastTwo)[1] ?? null;

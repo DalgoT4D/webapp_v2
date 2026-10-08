@@ -64,7 +64,11 @@ export default function CreateDashboardPage() {
           <p className="text-muted-foreground mb-4">
             You don't have permission to create dashboards.
           </p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="dashboard-create-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>

@@ -5,7 +5,7 @@
  * sample-data fork, frames 2672:856 -> 2683:7260). Unlike ProductTour, steps here advance
  * on the user's REAL action (clicking Create KPI, saving, sharing) rather than a driver.js
  * "Next" button — those real components call `useInsightWalkthroughStore.getState().advanceTo(...)`
- * directly (see kpi-page.tsx, dashboard-builder-v2.tsx, dashboard-native-view.tsx). This
+ * directly (see kpi-page.tsx, dashboard-builder.tsx, dashboard-native-view.tsx). This
  * component only owns rendering the right highlight for the CURRENT stage and reacting to
  * route changes for stages whose advance signal is simply "the user navigated onward".
  *

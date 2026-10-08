@@ -197,7 +197,12 @@ export function ChartExportDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size={size} disabled={isExporting}>
+        <Button
+          variant={variant}
+          size={size}
+          disabled={isExporting}
+          data-testid="chart-export-trigger"
+        >
           {isExporting ? (
             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
           ) : (
@@ -218,6 +223,7 @@ export function ChartExportDropdown({
             <DropdownMenuItem
               onClick={() => handleExport('png')}
               className="cursor-pointer"
+              data-testid="chart-export-png"
               disabled={isExporting}
             >
               <FileImage className="w-4 h-4 mr-2" />
@@ -227,6 +233,7 @@ export function ChartExportDropdown({
             <DropdownMenuItem
               onClick={() => handleExport('csv')}
               className="cursor-pointer"
+              data-testid="chart-export-csv"
               disabled={isExporting}
             >
               <Table className="w-4 h-4 mr-2" />
@@ -239,6 +246,7 @@ export function ChartExportDropdown({
             <DropdownMenuItem
               onClick={() => handleExport('png')}
               className="cursor-pointer"
+              data-testid="chart-export-png"
               disabled={isExporting}
             >
               <FileImage className="w-4 h-4 mr-2" />
@@ -248,6 +256,7 @@ export function ChartExportDropdown({
             <DropdownMenuItem
               onClick={() => handleExport('pdf')}
               className="cursor-pointer"
+              data-testid="chart-export-pdf"
               disabled={isExporting}
             >
               <FileText className="w-4 h-4 mr-2" />
@@ -258,6 +267,7 @@ export function ChartExportDropdown({
               <DropdownMenuItem
                 onClick={() => handleExport('csv')}
                 className="cursor-pointer"
+                data-testid="chart-export-csv"
                 disabled={isExporting}
               >
                 <Table className="w-4 h-4 mr-2" />

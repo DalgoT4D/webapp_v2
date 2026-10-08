@@ -71,11 +71,11 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="p-1.5">
+        <Button variant="outline" size="sm" className="p-1.5" data-testid="dashboard-embed-trigger">
           <Code className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-4">
+      <DropdownMenuContent align="end" className="w-80 p-4" data-testid="dashboard-embed-menu">
         <div className="space-y-4">
           <div>
             <h3 className="font-medium mb-3">Embed Dashboard</h3>
@@ -84,6 +84,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                 <Label className="text-sm">Show title</Label>
                 <Switch
                   checked={embedOptions.showTitle}
+                  data-testid="dashboard-embed-show-title-switch"
                   onCheckedChange={(checked) =>
                     setEmbedOptions((prev) => ({ ...prev, showTitle: checked }))
                   }
@@ -93,6 +94,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                 <Label className="text-sm">Show organization</Label>
                 <Switch
                   checked={embedOptions.showOrganization}
+                  data-testid="dashboard-embed-show-org-switch"
                   onCheckedChange={(checked) =>
                     setEmbedOptions((prev) => ({ ...prev, showOrganization: checked }))
                   }
@@ -102,6 +104,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                 <Label className="text-sm">Show padding</Label>
                 <Switch
                   checked={embedOptions.showPadding}
+                  data-testid="dashboard-embed-show-padding-switch"
                   onCheckedChange={(checked) =>
                     setEmbedOptions((prev) => ({ ...prev, showPadding: checked }))
                   }
@@ -111,6 +114,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                 <Label className="text-sm">Theme</Label>
                 <select
                   value={embedOptions.theme}
+                  data-testid="dashboard-embed-theme-select"
                   onChange={(e) =>
                     setEmbedOptions((prev) => ({
                       ...prev,
@@ -129,6 +133,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                   <input
                     type="number"
                     value={embedOptions.width}
+                    data-testid="dashboard-embed-width-input"
                     onChange={(e) =>
                       setEmbedOptions((prev) => ({
                         ...prev,
@@ -145,6 +150,7 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
                   <input
                     type="number"
                     value={embedOptions.height}
+                    data-testid="dashboard-embed-height-input"
                     onChange={(e) =>
                       setEmbedOptions((prev) => ({
                         ...prev,
@@ -163,12 +169,14 @@ export function EmbedCodeDropdown({ token, dashboardTitle, dashboardId }: EmbedC
             <Label className="text-sm">Embed Code</Label>
             <textarea
               value={generateEmbedCode()}
+              data-testid="dashboard-embed-code-textarea"
               readOnly
               className="w-full text-xs font-mono p-2 border rounded bg-gray-50 resize-none"
               rows={5}
             />
             <Button
               onClick={handleCopyCode}
+              data-testid="dashboard-embed-copy-btn"
               variant={copied ? 'default' : 'outline'}
               size="sm"
               className="w-full"

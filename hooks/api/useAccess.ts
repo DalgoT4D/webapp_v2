@@ -277,7 +277,7 @@ export interface UpdateGeneralAccessResponse {
  *
  * Tracked here rather than at the call sites because this one function is the only way any
  * resource goes public — the previous per-resource `update*Sharing` helpers each needed their
- * own copy of this — and because ShareModal lives in components/ui/, which we keep free of
+ * own copy of this — and because ShareModal (components/share/) is kept free of
  * analytics.
  *
  * Only going public fires: turning sharing off is not an outcome we measure, and one event

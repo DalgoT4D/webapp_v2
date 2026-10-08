@@ -3,6 +3,8 @@
  * Defines minimum dimensions for proper chart rendering
  */
 
+import { GRID_COLUMN_COUNT, GRID_ROW_HEIGHT } from '@/components/dashboard/grid/grid-constants';
+
 export interface ChartSizeConstraint {
   minWidth: number;
   minHeight: number;
@@ -15,10 +17,11 @@ export interface GridDimensions {
   h: number; // Grid units height
 }
 
-// Grid configuration - must match dashboard-builder-v2.tsx rowHeight
+// Grid configuration for size estimates — same columns and row height as the dashboard grid.
+// The margin is NOT the grid's (GRID_GAP_PX = 8): estimates have always used 10px; kept as is.
 export const GRID_CONFIG = {
-  cols: 12,
-  rowHeight: 20, // Height of one grid row in pixels (matches dashboard builder)
+  cols: GRID_COLUMN_COUNT,
+  rowHeight: GRID_ROW_HEIGHT, // Height of one grid row in pixels (matches dashboard builder)
   margin: [10, 10] as [number, number],
 } as const;
 
@@ -285,7 +288,7 @@ export function analyzeChartContent(chartData: any, chartType: string): ChartSiz
 
         // Check for long X-axis labels - only affects default size
         if (chartData.echarts_config?.xAxis?.data?.length > 0) {
-          const labels = chartData.echarts_config.xAxis.data.map((label: any) =>
+          const labels: string[] = chartData.echarts_config.xAxis.data.map((label: unknown) =>
             String(label || '')
           );
           const maxLabelLength = Math.max(...labels.map((label) => label.length));
@@ -537,7 +540,7 @@ export function getContentAwareGridDimensions(
 
   // Chart-type-specific minimum grid dimensions - very flexible for user control
   // Charts can be made very small - content (legends, labels) will scale responsively
-  const chartTypeMinimums = {
+  const chartTypeMinimums: Record<string, { minW: number; minH: number }> = {
     number: { minW: 1, minH: 1 }, // Number cards can be very compact
     pie: { minW: 1, minH: 1 }, // Pie charts - legend scales with size
     bar: { minW: 1, minH: 2 }, // Bar charts - axes adapt

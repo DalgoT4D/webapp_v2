@@ -93,13 +93,17 @@ export function FilterElement({
   };
 
   return (
-    <div className={`w-full relative group ${compact ? '' : 'h-full'}`}>
+    <div
+      className={`w-full relative group ${compact ? '' : 'h-full'}`}
+      data-testid={`dashboard-filter-${filter.id}`}
+    >
       {/* Drag handle for reordering (only in edit mode) - Hidden by default, shown on hover */}
       {isEditMode && dragHandleProps && (
         <div
           {...dragHandleProps}
           className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1 bg-white border border-gray-200 rounded shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all opacity-0 group-hover:opacity-100"
           title="Drag to reorder"
+          data-testid={`dashboard-filter-drag-${filter.id}`}
         >
           <GripVertical className="w-3 h-3 text-gray-500" />
         </div>
@@ -113,6 +117,7 @@ export function FilterElement({
               onClick={handleClear}
               className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
               title="Clear filter"
+              data-testid={`dashboard-filter-clear-${filter.id}`}
             >
               <RotateCcw className="w-3 h-3 text-gray-600 hover:text-orange-600" />
             </button>
@@ -122,6 +127,7 @@ export function FilterElement({
               onClick={onEdit}
               className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
               title="Edit filter"
+              data-testid={`dashboard-filter-edit-${filter.id}`}
             >
               <Edit2 className="w-3 h-3 text-gray-600 hover:text-blue-600" />
             </button>
@@ -131,6 +137,7 @@ export function FilterElement({
               onClick={onRemove}
               className="p-1.5 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-all"
               title="Remove filter"
+              data-testid={`dashboard-filter-remove-${filter.id}`}
             >
               <X className="w-3 h-3 text-gray-600 hover:text-red-600" />
             </button>

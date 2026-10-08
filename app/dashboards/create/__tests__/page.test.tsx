@@ -46,7 +46,7 @@ describe('CreateDashboardPage', () => {
 
   it('redirects to the dashboard list when creation fails', async () => {
     createDashboard.mockRejectedValue(new Error('boom'));
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     render(
       <StrictMode>

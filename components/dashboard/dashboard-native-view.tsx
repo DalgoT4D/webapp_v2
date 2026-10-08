@@ -2,255 +2,49 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useOpenShareDeepLink } from '@/hooks/useOpenShareDeepLink';
-import GridLayoutLib, {
-  Responsive as ResponsiveGridLayout,
-  WidthProvider as GridLayoutWidthProvider,
-} from 'react-grid-layout';
-const GridLayout = GridLayoutLib;
-const ResponsiveGrid = GridLayoutWidthProvider(ResponsiveGridLayout);
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { DashboardTab, DashboardTabsData } from '@/types/dashboard';
-import { initializeTabsData, getActiveTabData } from './tabs/tab-utils';
-import { TabBar } from './tabs/TabBar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  ArrowLeft,
-  Edit,
-  Share2,
-  Download,
-  Maximize2,
-  Filter,
-  RefreshCw,
-  Lock,
-  Clock,
-  User,
-  Trash2,
-  Monitor,
-  Tablet,
-  Phone,
-  FileText,
-} from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useDashboard, deleteDashboard } from '@/hooks/api/useDashboards';
-import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { useAuthStore } from '@/stores/authStore';
-import { ChartElementView } from './chart-element-view';
-import { FilterElement } from './filter-element';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
 import { getDefaultFilterValues } from '@/lib/dashboard-filter-utils';
-import { UnifiedTextElement } from './text-element-unified';
-import { KPIChartElement } from './kpi-chart-element';
-import {
-  DashboardFilterType,
-  type ValueFilterSettings,
-  type NumericalFilterSettings,
-  type DateTimeFilterSettings,
-  type AppliedFilters,
-  type DashboardFilterConfig,
-} from '@/types/dashboard-filters';
+import { type AppliedFilters, type DashboardFilterConfig } from '@/types/dashboard-filters';
+import { toFilterConfig } from '@/components/dashboard/filters/filter-config';
 import { useToast } from '@/components/ui/use-toast';
-import { toastSuccess } from '@/lib/toast';
-import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
-import { ShareModal } from '@/components/ui/share-modal';
-import { ResponsiveDashboardActions } from './responsive-dashboard-actions';
+import { ShareModal } from '@/components/share/ShareModal';
 import { ResponsiveFiltersSection } from './responsive-filters-section';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { FrozenChartConfig } from '@/types/reports';
 import type { CommentStates } from '@/types/comments';
-import { useLandingPage } from '@/hooks/api/useLandingPage';
-import useSWR, { mutate as swrMutate } from 'swr';
-import { apiGet } from '@/lib/api';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Star, StarOff, Settings } from 'lucide-react';
+import { useCurrentOrgUser } from '@/components/dashboard/hooks/useCurrentOrgUser';
+import { useLandingPageActions } from '@/components/dashboard/hooks/useLandingPageActions';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
-import { trackEvent } from '@/lib/analytics';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import { getChartViewUrl, getKpiViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
-import {
-  markDashboardShared,
-  type WalkthroughStage,
-} from '@/components/onboarding/insight-walkthrough-constants';
-
+import { WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import { CelebrationModal } from '@/components/onboarding/celebration-modal';
-import { EmbedCodeDropdown } from '@/components/dashboard/embed-code-dropdown';
+import { SCREEN_SIZES, type ScreenSizeKey } from '@/components/dashboard/grid/grid-constants';
+import { VIEW_WIDGETS, type ViewWidgetContext } from '@/components/dashboard/widgets/view-widgets';
+import { DashboardViewHeader } from '@/components/dashboard/view/DashboardViewHeader';
+import { useDashboardShareFlow } from '@/components/dashboard/view/useDashboardShareFlow';
+import { useViewContainerWidth } from '@/components/dashboard/view/useViewContainerWidth';
+import { DashboardViewGrid } from '@/components/dashboard/view/DashboardViewGrid';
+import {
+  DashboardViewLoading,
+  DashboardViewNotFound,
+} from '@/components/dashboard/view/DashboardViewStates';
+import { DashboardCanvasStyles } from '@/components/dashboard/view/DashboardCanvasStyles';
+import { useDashboardViewSource } from '@/components/dashboard/view/useDashboardViewSource';
+import { useDashboardViewActions } from '@/components/dashboard/view/useDashboardViewActions';
+import { useViewTabs } from '@/components/dashboard/view/useViewTabs';
+import { ViewTabBar } from '@/components/dashboard/view/ViewTabBar';
+import { DashboardMinimalHeader } from '@/components/dashboard/view/DashboardMinimalHeader';
 
-/**
- * Walkthrough stages whose coachmark target lives INSIDE the share dialog — those keep their
- * spotlight while the dialog is open; every other stage's is suppressed.
- */
-const SHARE_DIALOG_COACHMARK_STAGES: WalkthroughStage[] = [
-  'share_public_toggle',
-  'share_copy_link',
-];
-
-/** Stages the share dialog can be opened FROM — either routes on into the dialog's own steps. */
-const SHARE_DIALOG_ENTRY_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle'];
-
-/**
- * Every stage from which copying the public link is the walkthrough's final act. Not just
- * 'share_copy_link': a dashboard that was already public never fires the sharing handler, so
- * the stage can still be one of the earlier two when the user copies.
- */
-const SHARE_TAIL_STAGES: WalkthroughStage[] = ['share', 'share_public_toggle', 'share_copy_link'];
-
-// Define responsive breakpoints and column configurations (same as builder)
-// Superset-style: Always 12 columns, they just scale with container width
-const BREAKPOINTS = {
-  lg: 1200,
-  md: 996,
-  sm: 768,
-  xs: 480,
-  xxs: 0,
-};
-
-// Screen size configurations (same as builder)
-// All use 12 columns - the column width scales based on container size
-const SCREEN_SIZES = {
-  desktop: {
-    name: 'Desktop',
-    width: 1200,
-    height: 800,
-    cols: 12,
-    breakpoint: 'lg',
-  },
-  tablet: {
-    name: 'Tablet',
-    width: 768,
-    height: 1024,
-    cols: 12,
-    breakpoint: 'sm',
-  },
-  mobile: {
-    name: 'Mobile',
-    width: 375,
-    height: 667,
-    cols: 12,
-    breakpoint: 'xxs',
-  },
-};
-
-// Fixed 12 columns at all breakpoints - columns scale with container width
-const COLS = {
-  lg: 12,
-  md: 12,
-  sm: 12,
-  xs: 12,
-  xxs: 12,
-};
-
-type ScreenSizeKey = keyof typeof SCREEN_SIZES;
-
-// Get current viewport screen size category
-function getCurrentScreenSize(): ScreenSizeKey {
-  if (typeof window === 'undefined') return 'desktop';
-
-  const width = window.innerWidth;
-  if (width >= 1200) return 'desktop';
-  if (width >= 768) return 'tablet';
-  if (width >= 480) return 'tablet'; // Large mobile treated as tablet
-  return 'mobile';
-}
-
-// Helper function to generate responsive layouts with preview screen size focus
-// With fixed 12 columns (Superset-style), all breakpoints use the same layout
-function generateResponsiveLayoutsForPreview(
-  layout: any[],
-  _previewScreenSize: ScreenSizeKey
-): any {
-  const layouts: any = {};
-
-  // Since all breakpoints use 12 columns (Superset-style),
-  // the same layout works for all screen sizes - columns just scale in width
-  Object.keys(COLS).forEach((breakpoint) => {
-    // Use the same layout for all breakpoints - the grid columns scale with container width
-    layouts[breakpoint] = layout.map((item) => ({
-      ...item,
-      // Ensure valid constraints
-      w: Math.max(1, Math.min(item.w, 12)),
-      x: Math.max(0, Math.min(item.x, 12 - Math.max(1, item.w))),
-      y: Math.max(0, item.y),
-      minW: Math.max(1, Math.min(item.minW || 1, 12)),
-      minH: item.minH || 1,
-      maxW: 12,
-    }));
-  });
-
-  return layouts;
-}
-
-// Convert DashboardFilter (API response) to DashboardFilterConfig (frontend format)
-function convertFilterToConfig(
-  filter: any,
-  position: { x: number; y: number; w: number; h: number }
-): DashboardFilterConfig {
-  const baseConfig = {
-    id: filter.id.toString(),
-    name: filter.name,
-    schema_name: filter.schema_name,
-    table_name: filter.table_name,
-    column_name: filter.column_name,
-    filter_type: filter.filter_type as DashboardFilterType,
-    position,
-  };
-
-  if (filter.filter_type === 'value') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  } else if (filter.filter_type === 'numerical') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.NUMERICAL,
-      settings: filter.settings as NumericalFilterSettings,
-    };
-  } else if (filter.filter_type === 'datetime') {
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.DATETIME,
-      settings: filter.settings as DateTimeFilterSettings,
-    };
-  } else {
-    // Fallback to VALUE type for unknown types
-    return {
-      ...baseConfig,
-      filter_type: DashboardFilterType.VALUE,
-      settings: filter.settings as ValueFilterSettings,
-    };
-  }
-}
+// After filter panel collapse, ECharts still sees the pre-animation container width.
+// Wait for the slide transition (duration-300) to finish before firing resize so all
+// chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
+const FILTER_PANEL_TRANSITION_MS = 350;
 
 interface DashboardNativeViewProps {
   dashboardId: number;
@@ -266,7 +60,6 @@ interface DashboardNativeViewProps {
   beforeContent?: React.ReactNode; // Content rendered above the chart grid inside the canvas
   topRightContent?: React.ReactNode; // Content rendered above the tab bar in the right column (e.g. report summary)
   onContainerRef?: (el: HTMLDivElement | null) => void; // Callback to expose the canvas container ref
-  isPrintMode?: boolean; // Print mode — removes height constraints for full-page PDF capture
   snapshotId?: number; // Report snapshot ID for comments
   commentStates?: CommentStates; // Comment states array with target_type and chart_id
   onCommentStateChange?: () => void; // Callback to revalidate comment states
@@ -289,7 +82,6 @@ export function DashboardNativeView({
   beforeContent,
   topRightContent,
   onContainerRef,
-  isPrintMode = false,
   snapshotId,
   commentStates,
   onCommentStateChange,
@@ -298,19 +90,15 @@ export function DashboardNativeView({
   canModerateComments = false,
 }: DashboardNativeViewProps) {
   const router = useRouter();
-  const { initialOpen: initialShareModalOpen, clearParam: clearShareDeepLink } =
-    useOpenShareDeepLink();
   const widgetNavigationSource = isReportMode
     ? WIDGET_NAVIGATION_SOURCES.REPORT
     : WIDGET_NAVIGATION_SOURCES.DASHBOARD;
-  const showWidgetNavigation = !isPublicMode && !isEmbedMode && !isPrintMode;
+  const showWidgetNavigation = !isPublicMode && !isEmbedMode;
   const [selectedFilters, setSelectedFilters] = useState<AppliedFilters>(() => {
     // In report mode, dashboardData is pre-fetched so filters are available immediately.
     // Compute defaults synchronously to avoid a double-render cycle with empty filters.
     if (isReportMode && dashboardData?.filters && Array.isArray(dashboardData.filters)) {
-      const filterConfigs = dashboardData.filters.map((filter: any) =>
-        convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
-      );
+      const filterConfigs = dashboardData.filters.map((filter: any) => toFilterConfig(filter));
       return getDefaultFilterValues(filterConfigs);
     }
     return {};
@@ -320,23 +108,10 @@ export function DashboardNativeView({
     onFiltersChange?.(selectedFilters);
   }, [selectedFilters, onFiltersChange]);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [actualContainerWidth, setActualContainerWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1200
-  );
-  const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
-  const [shareModalOpen, setShareModalOpen] = useState(initialShareModalOpen);
-  // Walkthrough only — the "you're officially live" beat, after the public link is copied.
-  const [dashboardLiveModalOpen, setDashboardLiveModalOpen] = useState(false);
-  const walkthroughStage = useInsightWalkthroughStore((state) => state.stage);
-
-  const [previewScreenSize, setPreviewScreenSize] = useState<ScreenSizeKey | null>(null);
-  // Filters panel collapse state
-  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
-
-  // Tabs state for view mode - only need to track active tab for switching
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [, setCurrentBreakpoint] = useState('lg');
+  const [previewScreenSize] = useState<ScreenSizeKey | null>(null);
+  // Filters panel collapse state (set, never read — kept: its setter re-renders as before)
+  const [, setIsFiltersCollapsed] = useState(showMinimalHeader || isPublicMode);
 
   // Ref for the dashboard container
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
@@ -347,64 +122,33 @@ export function DashboardNativeView({
 
   const { toast } = useToast();
 
-  // Get current user info for permission checks (skip in public mode)
-  const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
-  const authCurrentUser = isPublicMode ? null : getCurrentOrgUser();
+  // Current user (fresh landing-page ids; null in public mode)
+  const currentUser = useCurrentOrgUser(isPublicMode);
 
-  // Fetch fresh user data to get updated landing page settings
-  const { data: orgUsersData } = useSWR(!isPublicMode ? '/api/currentuserv2' : null, apiGet, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
+  // Landing page functionality (shared with the dashboard list)
+  const {
+    setMyLanding,
+    removeMyLanding,
+    makeOrgDefault,
+    isLandingPageLoading: landingPageLoading,
+  } = useLandingPageActions();
+
+  const { dashboard, isLoading, isError, mutate } = useDashboardViewSource({
+    dashboardId,
+    isPublicMode,
+    isReportMode,
+    dashboardData,
   });
 
-  // Use fresh user data if available, fall back to auth store data
-  const selectedOrgSlug = useAuthStore((state) => state.selectedOrgSlug);
-  const currentUser = isPublicMode
-    ? null
-    : orgUsersData?.find((ou: any) => ou.org.slug === selectedOrgSlug) || authCurrentUser;
-
-  // Landing page functionality
-  const {
-    setPersonalLanding,
-    removePersonalLanding,
-    setOrgDefault,
-    isLoading: landingPageLoading,
-  } = useLandingPage();
-
-  // Fetch dashboard data (skip API call if we have pre-fetched data for public mode)
-  const {
-    data: dashboardFromApi,
-    isLoading: apiIsLoading,
-    isError: apiIsError,
-    mutate,
-  } = useDashboard((isPublicMode || isReportMode) && dashboardData ? null : dashboardId);
-
-  // Use pre-fetched data for public/report mode, otherwise use API data
-  const dashboard =
-    (isPublicMode || isReportMode) && dashboardData ? dashboardData : dashboardFromApi;
-
-  // The share dialog gets no coachmark of its own while the user is finding their way around
-  // it, so the spotlight hides (same pattern as the KPI/chart picker modals in
-  // dashboard-builder-v2) — except for the two stages whose targets are inside this very
-  // dialog: the Public Access switch and, once that's on, the copy button.
-  useEffect(() => {
-    useInsightWalkthroughStore
-      .getState()
-      .setSuppressCoachmark(
-        shareModalOpen && !SHARE_DIALOG_COACHMARK_STAGES.includes(walkthroughStage!)
-      );
-    // Opening the dialog is what completes the 'share' step. Where it goes next depends on the
-    // dashboard: a private one needs the Public Access switch flipped, an ALREADY-public one
-    // has nothing to flip, so it goes straight to the copy button. Without that second case
-    // the walkthrough parks on a switch that is already on, the sharing handler (its only way
-    // forward) never fires, and the flow can never reach finish() — nothing written to the
-    // backend, no tick on the Get Started checklist.
-    if (shareModalOpen && SHARE_DIALOG_ENTRY_STAGES.includes(walkthroughStage!)) {
-      useInsightWalkthroughStore
-        .getState()
-        .advanceIfBefore(dashboard?.is_public ? 'share_copy_link' : 'share_public_toggle');
-    }
-  }, [shareModalOpen, walkthroughStage, dashboard?.is_public]);
+  const share = useDashboardShareFlow({ dashboard, refreshDashboard: mutate });
+  const { isRefreshing, isDeleting, handleEdit, handleRefresh, handleDelete } =
+    useDashboardViewActions({
+      dashboardId,
+      dashboardTitle: dashboard?.title,
+      router,
+      refresh: mutate,
+      toast,
+    });
 
   // Org logo for fullscreen overlays:
   // - Private mode: user is logged in, auth store has the org logo
@@ -413,10 +157,6 @@ export function DashboardNativeView({
   const orgLogoUrl = isPublicMode
     ? (dashboard?.org_logo_url ?? null)
     : (currentOrg?.logo_url ?? null);
-
-  // Override loading and error states when we have pre-fetched data
-  const isLoading = (isPublicMode || isReportMode) && dashboardData ? false : apiIsLoading;
-  const isError = (isPublicMode || isReportMode) && dashboardData ? false : apiIsError;
 
   // Use responsive layout hook
   const responsive = useResponsiveLayout();
@@ -429,7 +169,7 @@ export function DashboardNativeView({
   // a member granted edit has access_level === "edit" but no role edit slug.
   const canEdit = useMemo(() => {
     if (isPublicMode || !dashboard || !currentUser) return false;
-    return dashboard.access_level === 'edit';
+    return hasEditAccess(dashboard.access_level);
   }, [isPublicMode, dashboard, currentUser]);
 
   // Check if dashboard is locked
@@ -447,62 +187,30 @@ export function DashboardNativeView({
 
   // Get target screen size (the size dashboard was designed for)
   const targetScreenSize = (dashboard?.target_screen_size as ScreenSizeKey) || 'desktop';
-  const [currentScreenSize, setCurrentScreenSize] = useState<ScreenSizeKey>('desktop');
+
+  const { actualContainerWidth } = useViewContainerWidth(dashboardContainerRef);
 
   // Use preview size if set, otherwise fall back to target size
   const effectiveScreenSize = previewScreenSize || targetScreenSize;
   const effectiveScreenConfig = SCREEN_SIZES[effectiveScreenSize];
 
-  // Get filter layout from dashboard data (same as edit mode)
-  const filterLayout = (dashboard?.filter_layout as 'vertical' | 'horizontal') || 'vertical';
-
   // Convert dashboard filters to DashboardFilterConfig format for UnifiedFiltersPanel
   const dashboardFilters: DashboardFilterConfig[] = useMemo(() => {
     if (!dashboard?.filters || !Array.isArray(dashboard.filters)) return [];
 
-    return dashboard.filters.map((filter: any) =>
-      convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
-    );
+    return dashboard.filters.map((filter: any) => toFilterConfig(filter));
   }, [dashboard?.filters]);
 
   // Default filter values for report mode are computed synchronously in useState above.
   // No useEffect needed — this avoids a double-render cycle with empty filters.
 
-  // Derive tabs data from dashboard
-  const tabsData: DashboardTabsData | null = useMemo(() => {
-    if (!dashboard) return null;
-    return initializeTabsData(dashboard.tabs);
-  }, [dashboard]);
-
-  // Get effective active tab ID
-  const effectiveActiveTabId =
-    activeTabId || tabsData?.activeTabId || tabsData?.tabs?.[0]?.id || null;
-
-  // Derive the current tab's layout/components to render
-  const currentTab = useMemo(() => {
-    if (tabsData && effectiveActiveTabId) {
-      return tabsData.tabs.find((t) => t.id === effectiveActiveTabId) || null;
-    }
-    return null;
-  }, [tabsData, effectiveActiveTabId]);
-
-  // Handle tab change in view mode
-  const handleTabChange = useCallback((tabId: string) => {
-    setActiveTabId(tabId);
-  }, []);
-
-  // After filter panel collapse, ECharts still sees the pre-animation container width.
-  // Wait for the slide transition (duration-300) to finish before firing resize so all
-  // chart instances remeasure against the final layout — 300ms transition + 50ms buffer.
-  const FILTER_PANEL_TRANSITION_MS = 350;
+  const { tabsData, effectiveActiveTabId, currentTab, handleTabChange, shouldShowTabs } =
+    useViewTabs(dashboard);
 
   const handleFiltersCollapseChange = useCallback((collapsed: boolean) => {
     setIsFiltersCollapsed(collapsed);
     setTimeout(() => window.dispatchEvent(new Event('resize')), FILTER_PANEL_TRANSITION_MS);
   }, []);
-
-  // Check if we should show tabs (2 or more tabs)
-  const shouldShowTabs = tabsData && (tabsData.tabs?.length ?? 0) >= 2;
 
   // Allow editing in preview mode without any conditions
 
@@ -512,116 +220,11 @@ export function DashboardNativeView({
   // now lives on the live dashboard route only (app/dashboards/[id]/page.tsx) so each page
   // fires exactly its own view event.
 
-  // Update current screen size on resize
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const newScreenSize = getCurrentScreenSize();
-      setCurrentScreenSize(newScreenSize);
-    };
-
-    // Initial measurement
-    updateScreenSize();
-
-    // Update on window resize with debouncing
-    let resizeTimeout: NodeJS.Timeout;
-    const debouncedResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(updateScreenSize, 150);
-    };
-
-    window.addEventListener('resize', debouncedResize);
-
-    return () => {
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', debouncedResize);
-    };
-  }, []);
-
-  // Observe dashboard container for responsive width
-  useEffect(() => {
-    if (!dashboardContainerRef.current) return;
-
-    // Set initial width
-    const initialWidth = dashboardContainerRef.current.offsetWidth || window.innerWidth;
-    setActualContainerWidth(initialWidth);
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width } = entry.contentRect;
-        // Use full available container width
-        setActualContainerWidth(width);
-      }
-    });
-
-    resizeObserver.observe(dashboardContainerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
   // Handle fullscreen toggle - use unified fullscreen system
   const handleToggleFullscreen = () => {
     if (containerRef.current) {
       toggleFullscreen(containerRef.current);
     }
-  };
-
-  // Handle edit navigation
-  const handleEdit = () => {
-    router.push(`/dashboards/${dashboardId}/edit`);
-  };
-
-  // Handle share
-  const handleShare = () => {
-    setShareModalOpen(true);
-  };
-
-  // Handle share modal close
-  const handleShareModalClose = () => {
-    setShareModalOpen(false);
-    clearShareDeepLink();
-  };
-
-  // Handle dashboard update after sharing changes
-  const handleDashboardUpdate = () => {
-    mutate(); // Refresh the dashboard data
-  };
-
-  // ShareModal (a components/ui/ component we keep free of onboarding logic) reports when
-  // General access flips to Public, and that is what moves the walkthrough on — same trick
-  // dashboard-list-v2 uses for the "shared" milestone. The dialog stays open: the next stage
-  // points at the copy button inside it.
-  const handleMadePublic = useCallback(() => {
-    markDashboardShared();
-    const walkthrough = useInsightWalkthroughStore.getState();
-    // Either stage can be live here: 'share_public_toggle' normally, or 'share' if the user
-    // reached the access picker without the dialog-open effect having run (a resumed flow).
-    if (walkthrough.active) walkthrough.advanceIfBefore('share_copy_link');
-  }, []);
-
-  // Copying the link is the walkthrough's last action — the flow ends on a celebration
-  // rather than a toast, and stays put so the user is looking at what they just built.
-  const handleCopyLink = useCallback(() => {
-    // The share itself. Fired before the walkthrough branch so it lands on every copy,
-    // not only during onboarding. DASHBOARD_MADE_PUBLIC (from updateGeneralAccess)
-    // only means the link exists; this means the user actually handed it out.
-    // dashboard.id, not the dashboardId prop: it is what ShareModal was opened with,
-    // and it is a real id here (the modal only renders outside public mode).
-    trackEvent(ANALYTICS_EVENTS.DASHBOARD_SHARED, { dashboard_id: dashboard?.id });
-    const walkthrough = useInsightWalkthroughStore.getState();
-    if (walkthrough.active && SHARE_TAIL_STAGES.includes(walkthrough.stage!)) {
-      walkthrough.finish();
-      setShareModalOpen(false);
-      setDashboardLiveModalOpen(true);
-    }
-  }, [dashboard?.id]);
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await mutate();
-    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   // Handle filter changes (for legacy filter components in canvas)
@@ -643,57 +246,33 @@ export function DashboardNativeView({
   };
 
   // Count applied filters for responsive component
+  // PINNED-BUGS: "Mobile filter accordion "N applied" counts unset filters"
   const appliedFiltersCount = Object.keys(selectedFilters).length;
 
-  const handleClearAllFilters = () => {
-    setSelectedFilters({});
-  };
-
-  // Handle dashboard deletion
-  const handleDelete = async () => {
-    setIsDeleting(true);
-
-    try {
-      await deleteDashboard(dashboardId);
-      trackEvent(ANALYTICS_EVENTS.DASHBOARD_DELETED, { dashboard_id: dashboardId });
-
-      toast({
-        title: 'Dashboard deleted',
-        description: `"${dashboard?.title}" has been successfully deleted.`,
-        variant: 'default',
-      });
-
-      // Navigate back to dashboard list
-      router.push('/dashboards');
-    } catch (error) {
-      console.error('Error deleting dashboard:', error);
-      toast({
-        title: 'Delete failed',
-        description: 'Failed to delete the dashboard. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   // Landing page handlers
-  const handleSetPersonalLanding = async () => {
-    await setPersonalLanding(dashboardId);
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
-  };
+  const handleSetPersonalLanding = () => setMyLanding(dashboardId);
+  const handleRemovePersonalLanding = () => removeMyLanding();
+  const handleSetOrgDefault = () => makeOrgDefault(dashboardId);
 
-  const handleRemovePersonalLanding = async () => {
-    await removePersonalLanding();
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
-  };
-
-  const handleSetOrgDefault = async () => {
-    await setOrgDefault(dashboardId);
-    // Refresh user data to update landing page status
-    await swrMutate('/api/currentuserv2');
+  // What every widget reads from this view (one object per render)
+  const widgetContext: ViewWidgetContext = {
+    dashboardFilterRows: dashboard?.filters,
+    selectedFilters,
+    dashboardFilterConfigs: dashboardFilters,
+    isPublicMode,
+    publicToken,
+    isReportMode,
+    frozenChartConfigs,
+    snapshotId,
+    commentStates,
+    onCommentStateChange,
+    autoOpenCommentChartId,
+    canModerateComments,
+    orgLogoUrl,
+    showWidgetNavigation,
+    widgetNavigationSource,
+    navigate: (url: string) => router.push(url),
+    onFilterChange: handleFilterChange,
   };
 
   // Render dashboard components (from active tab)
@@ -704,189 +283,18 @@ export function DashboardNativeView({
     const component = components[componentId];
     if (!component) return null;
 
-    switch (component.type) {
-      case 'chart':
-        return (
-          <div key={componentId} className="h-full">
-            <ChartElementView
-              chartId={Number(component.config?.chartId)}
-              dashboardFilters={selectedFilters}
-              dashboardFilterConfigs={dashboardFilters}
-              viewMode={true}
-              className="h-full"
-              isPublicMode={isPublicMode}
-              publicToken={publicToken}
-              config={component.config}
-              frozenChartConfig={
-                isReportMode && frozenChartConfigs
-                  ? frozenChartConfigs[String(component.config?.chartId)]
-                  : undefined
-              }
-              snapshotId={isReportMode ? snapshotId : undefined}
-              commentStates={isReportMode ? commentStates : undefined}
-              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
-              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
-              canModerateComments={isReportMode ? canModerateComments : undefined}
-              orgLogoUrl={orgLogoUrl}
-              onView={
-                showWidgetNavigation
-                  ? () =>
-                      router.push(
-                        getChartViewUrl(Number(component.config?.chartId), widgetNavigationSource)
-                      )
-                  : undefined
-              }
-            />
-          </div>
-        );
-
-      case 'text':
-        // Use the same UnifiedTextElement component as edit mode for perfect consistency
-        return (
-          <div key={componentId} className="w-full h-full">
-            <UnifiedTextElement
-              config={component.config}
-              onUpdate={() => {}} // No-op in view mode
-              isEditMode={false}
-            />
-          </div>
-        );
-
-      case 'heading':
-        // Legacy heading component - keep for backward compatibility
-        const level = component.config?.level || 2;
-        const headingStyles = cn(
-          'text-gray-900 font-semibold',
-          level === 1 && 'text-2xl',
-          level === 2 && 'text-xl',
-          level === 3 && 'text-lg'
-        );
-
-        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
-        return (
-          <div key={componentId} className="h-full p-4 flex items-center">
-            <HeadingTag
-              className={headingStyles}
-              style={{ color: component.config?.color || '#1f2937' }}
-            >
-              {component.config?.text || 'Heading'}
-            </HeadingTag>
-          </div>
-        );
-
-      case 'kpi':
-        return (
-          <div key={componentId} className="h-full">
-            <KPIChartElement
-              kpiId={Number(component.config?.kpiId)}
-              config={component.config}
-              dashboardFilters={selectedFilters}
-              snapshotId={isReportMode ? snapshotId : undefined}
-              publicToken={publicToken}
-              isPublicMode={isPublicMode}
-              isReportMode={isReportMode}
-              commentStates={isReportMode ? commentStates : undefined}
-              onCommentStateChange={isReportMode ? onCommentStateChange : undefined}
-              autoOpenCommentChartId={isReportMode ? autoOpenCommentChartId : undefined}
-              canModerateComments={isReportMode ? canModerateComments : undefined}
-              onView={
-                showWidgetNavigation
-                  ? () =>
-                      router.push(
-                        getKpiViewUrl(Number(component.config?.kpiId), widgetNavigationSource)
-                      )
-                  : undefined
-              }
-            />
-          </div>
-        );
-
-      case 'filter':
-        // Get the actual filter data from dashboard.filters using the filterId reference
-        const filterId = component.config?.filterId || component.config?.id;
-
-        // First try to find in dashboard.filters array
-        let filterData = dashboard?.filters?.find((f: any) => {
-          // Convert both to numbers for comparison since one might be string
-          return Number(f.id) === Number(filterId);
-        });
-
-        // If not found in filters array (for backward compatibility), use config directly
-        if (!filterData && component.config?.column_name) {
-          filterData = component.config;
-        }
-
-        if (!filterData) {
-          return (
-            <div key={componentId} className="h-full p-4 bg-red-50 border border-red-200 rounded">
-              <p className="text-red-600">Filter not found: ID {filterId}</p>
-              <p className="text-xs">
-                Available: {dashboard?.filters?.map((f: any) => f.id).join(', ')}
-              </p>
-            </div>
-          );
-        }
-
-        // Convert to proper format using conversion function
-        const normalizedFilter = convertFilterToConfig(filterData, { x: 0, y: 0, w: 4, h: 3 });
-
-        return (
-          <div key={componentId} className="h-full">
-            <FilterElement
-              filter={normalizedFilter}
-              onRemove={() => {}} // No remove in view mode
-              isEditMode={false}
-              value={selectedFilters[normalizedFilter.id]}
-              onChange={handleFilterChange}
-              isPublicMode={isPublicMode}
-              publicToken={publicToken}
-            />
-          </div>
-        );
-
-      default:
-        return null;
-    }
+    const ViewWidget = VIEW_WIDGETS[component.type];
+    return ViewWidget ? (
+      <ViewWidget componentId={componentId} component={component} ctx={widgetContext} />
+    ) : null;
   };
 
   if (isLoading) {
-    return (
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-        <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-12 gap-4">
-            <Skeleton className="col-span-6 h-64" />
-            <Skeleton className="col-span-6 h-64" />
-            <Skeleton className="col-span-4 h-48" />
-            <Skeleton className="col-span-8 h-48" />
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardViewLoading />;
   }
 
   if (isError || !dashboard) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-2">Dashboard Not Found</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                The dashboard you're looking for doesn't exist or you don't have access to it.
-              </p>
-              <Button onClick={() => router.push('/dashboards')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboards
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <DashboardViewNotFound onBack={() => router.push('/dashboards')} />;
   }
 
   return (
@@ -895,441 +303,42 @@ export function DashboardNativeView({
       className={cn(
         'h-full flex flex-col bg-white overflow-hidden',
         isFullscreen && 'fixed inset-0 z-50',
-        isPublicMode &&
-          !isPrintMode &&
-          'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto',
-        isPrintMode && 'h-auto overflow-visible print-mode'
+        isPublicMode && 'h-screen sm:h-screen sm:overflow-hidden min-h-screen overflow-auto'
       )}
     >
       {/* Fixed Header - Conditional rendering for landing page */}
       {!hideHeader && !showMinimalHeader && !isPublicMode && (
-        <div className="bg-white border-b shadow-sm flex-shrink-0">
-          {/* Mobile Header */}
-          <div className="lg:hidden">
-            {/* Mobile Top Row */}
-            <div className="px-4 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {!isFullscreen && !isPublicMode && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push('/dashboards')}
-                    className="p-1 flex-shrink-0"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {(!isPublicMode || isFullscreen) && (
-                      <h1 className="text-lg font-bold text-gray-900 truncate dashboard-header-title">
-                        {dashboard.title}
-                      </h1>
-                    )}
-                    {dashboard.is_published && (
-                      <Badge
-                        variant="default"
-                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
-                      >
-                        Published
-                      </Badge>
-                    )}
-                    {isLocked && (
-                      <Badge
-                        variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs flex-shrink-0"
-                      >
-                        <Lock className="w-3 h-3 mr-1" />
-                        Locked
-                      </Badge>
-                    )}
-                  </div>
-                  {dashboard.description && (!isPublicMode || isFullscreen) && (
-                    <p className="text-xs text-gray-600 mt-1 truncate">{dashboard.description}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Mobile Quick Actions */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {!isPublicMode && !isReportMode && (
-                  <RequestEditPill
-                    rtype="dashboard"
-                    resourceId={dashboard.id}
-                    resourceAccessLevel={dashboard.access_level}
-                  />
-                )}
-                {!isPublicMode && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          'px-3 py-1 text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
-                          (isPersonalLanding || isOrgDefault) &&
-                            'bg-blue-50 border-blue-200 text-blue-700'
-                        )}
-                        disabled={landingPageLoading}
-                      >
-                        {isPersonalLanding
-                          ? 'My Landing'
-                          : isOrgDefault
-                            ? 'Org Default'
-                            : 'Set Landing'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
-                        Landing Page
-                      </div>
-                      <DropdownMenuSeparator />
-
-                      {isPersonalLanding ? (
-                        <DropdownMenuItem
-                          onClick={handleRemovePersonalLanding}
-                          disabled={landingPageLoading}
-                        >
-                          <StarOff className="w-4 h-4 mr-2" />
-                          Remove as my landing page
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={handleSetPersonalLanding}
-                          disabled={landingPageLoading}
-                        >
-                          <Star className="w-4 h-4 mr-2" />
-                          Set as my landing page
-                        </DropdownMenuItem>
-                      )}
-
-                      {canManageOrgDefault && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            Organization Default
-                          </div>
-                          <DropdownMenuItem
-                            onClick={handleSetOrgDefault}
-                            disabled={landingPageLoading || isOrgDefault}
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {/* COMMENTED OUT: Refresh button - not needed in view mode */}
-                {/* <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-1.5"
-              >
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button> */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleToggleFullscreen}
-                  className="p-1.5"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </Button>
-
-                {!isPublicMode && dashboard?.public_share_token && (
-                  <EmbedCodeDropdown
-                    token={dashboard.public_share_token}
-                    dashboardTitle={dashboard?.title ?? ''}
-                    dashboardId={dashboard?.id}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* COMMENTED OUT: Mobile Device Preview Selector - not needed in view mode */}
-            {/* <div className="px-4 pb-2 border-t pt-2">
-            <Select
-              value={effectiveScreenSize}
-              onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desktop">
-                  <div className="flex items-center">
-                    <Monitor className="w-4 h-4 mr-2" />
-                    Desktop (1200px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="tablet">
-                  <div className="flex items-center">
-                    <Tablet className="w-4 h-4 mr-2" />
-                    Tablet (768px)
-                  </div>
-                </SelectItem>
-                <SelectItem value="mobile">
-                  <div className="flex items-center">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Mobile (375px)
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div> */}
-
-            {/* Responsive Action Row */}
-            {!isPublicMode && (
-              <div className="px-4 pb-2">
-                <ResponsiveDashboardActions
-                  onShare={handleShare}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onRefresh={handleRefresh}
-                  canEdit={canEdit && !isLockedByOther}
-                  canShare={canEdit}
-                  isDeleting={isDeleting}
-                  isRefreshing={isRefreshing}
-                  dashboardTitle={dashboard?.title}
-                  className="justify-end"
-                  suppressShareTestId
-                />
-              </div>
-            )}
-
-            {/* Mobile Metadata Row */}
-            <div className="px-4 pb-2 flex items-center gap-4 text-xs text-gray-500 border-t pt-2">
-              {dashboard.last_modified_by && (
-                <div className="flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  <span className="truncate">Updated by {dashboard.last_modified_by}</span>
-                </div>
-              )}
-              {dashboard.updated_at && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span>
-                    Modified{' '}
-                    {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop Header */}
-          <div className="hidden lg:block px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                {!isFullscreen && !isPublicMode && (
-                  <Button variant="ghost" size="sm" onClick={() => router.push('/dashboards')}>
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                )}
-                <div className="min-w-0 flex-1">
-                  {/* Title row: title + badges + modified-by/last-updated inline */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    {(!isPublicMode || isFullscreen) && (
-                      <h1 className="text-2xl font-bold text-gray-900 dashboard-header-title truncate flex-shrink-0 max-w-md">
-                        {dashboard.title}
-                      </h1>
-                    )}
-                    {dashboard.is_published && (
-                      <Badge
-                        variant="default"
-                        className="text-xs bg-green-100 text-green-800 flex-shrink-0"
-                      >
-                        Published
-                      </Badge>
-                    )}
-                    {isLocked && (
-                      <Badge
-                        variant={isLockedByOther ? 'destructive' : 'secondary'}
-                        className="text-xs flex-shrink-0"
-                      >
-                        <Lock className="w-3 h-3 mr-1" />
-                        {isLockedByOther ? `Locked by ${lockedBy}` : `Locked by you`}
-                      </Badge>
-                    )}
-                    {dashboard.last_modified_by && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
-                        <User className="w-3 h-3" />
-                        <span>Updated by {dashboard.last_modified_by}</span>
-                      </div>
-                    )}
-                    {dashboard.updated_at && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
-                        <Clock className="w-3 h-3" />
-                        <span>
-                          Modified{' '}
-                          {formatDistanceToNow(new Date(dashboard.updated_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Subtitle / description below the title */}
-                  {dashboard.description && (!isPublicMode || isFullscreen) && (
-                    <p
-                      className="text-sm text-gray-600 mt-1 line-clamp-2 max-w-3xl"
-                      data-testid="dashboard-description"
-                    >
-                      {dashboard.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {!isPublicMode && !isReportMode && (
-                  <RequestEditPill
-                    rtype="dashboard"
-                    resourceId={dashboard.id}
-                    resourceAccessLevel={dashboard.access_level}
-                  />
-                )}
-                {/* Landing page controls */}
-                {!isPublicMode && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          'text-xs border-green-600 text-green-600 bg-white hover:bg-green-50',
-                          (isPersonalLanding || isOrgDefault) &&
-                            'bg-blue-50 border-blue-200 text-blue-700'
-                        )}
-                        disabled={landingPageLoading}
-                      >
-                        {isPersonalLanding
-                          ? 'My Landing'
-                          : isOrgDefault
-                            ? 'Org Default'
-                            : 'Set Landing'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
-                        Landing Page
-                      </div>
-                      <DropdownMenuSeparator />
-
-                      {isPersonalLanding ? (
-                        <DropdownMenuItem
-                          onClick={handleRemovePersonalLanding}
-                          disabled={landingPageLoading}
-                        >
-                          <StarOff className="w-4 h-4 mr-2" />
-                          Remove as my landing page
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={handleSetPersonalLanding}
-                          disabled={landingPageLoading}
-                        >
-                          <Star className="w-4 h-4 mr-2" />
-                          Set as my landing page
-                        </DropdownMenuItem>
-                      )}
-
-                      {canManageOrgDefault && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            Organization Default
-                          </div>
-                          <DropdownMenuItem
-                            onClick={handleSetOrgDefault}
-                            disabled={landingPageLoading || isOrgDefault}
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            {isOrgDefault ? 'Current org default' : 'Set as org default'}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-
-                {/* Action buttons */}
-                <Button variant="outline" size="sm" onClick={handleToggleFullscreen}>
-                  <Maximize2 className="w-4 h-4" />
-                </Button>
-
-                {!isPublicMode && dashboard?.public_share_token && (
-                  <EmbedCodeDropdown
-                    token={dashboard.public_share_token}
-                    dashboardTitle={dashboard?.title ?? ''}
-                    dashboardId={dashboard?.id}
-                  />
-                )}
-
-                {/* COMMENTED OUT: Device Size Preview Selector - not needed in view mode */}
-                {/* <Select
-                value={effectiveScreenSize}
-                onValueChange={(value) => setPreviewScreenSize(value as ScreenSizeKey)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desktop">
-                    <div className="flex items-center">
-                      <Monitor className="w-4 h-4 mr-2" />
-                      Desktop
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="tablet">
-                    <div className="flex items-center">
-                      <Tablet className="w-4 h-4 mr-2" />
-                      Tablet
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="mobile">
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Mobile
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select> */}
-
-                {!isPublicMode && (
-                  <ResponsiveDashboardActions
-                    onShare={handleShare}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onRefresh={handleRefresh}
-                    canEdit={canEdit && !isLockedByOther}
-                    canShare={canEdit}
-                    isDeleting={isDeleting}
-                    isRefreshing={isRefreshing}
-                    dashboardTitle={dashboard?.title}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardViewHeader
+          dashboard={dashboard}
+          isFullscreen={isFullscreen}
+          isPublicMode={isPublicMode}
+          isReportMode={isReportMode}
+          isLocked={isLocked}
+          isLockedByOther={Boolean(isLockedByOther)}
+          lockedBy={lockedBy}
+          landing={{
+            isPersonalLanding,
+            isOrgDefault,
+            canManageOrgDefault,
+            isLoading: landingPageLoading,
+            onSetPersonal: handleSetPersonalLanding,
+            onRemovePersonal: handleRemovePersonalLanding,
+            onSetOrgDefault: handleSetOrgDefault,
+          }}
+          canEdit={canEdit}
+          isDeleting={isDeleting}
+          isRefreshing={isRefreshing}
+          onBack={() => router.push('/dashboards')}
+          onToggleFullscreen={handleToggleFullscreen}
+          onShare={share.handleShare}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onRefresh={handleRefresh}
+        />
       )}
       {/* Minimal Header - Show only title for landing page */}
       {showMinimalHeader && !isEmbedMode && (
-        <div className="bg-white border-b flex-shrink-0 px-6 py-6">
-          <div>
-            <h1 className="text-3xl font-bold truncate">{dashboard.title}</h1>
-            {dashboard.description && (
-              <p className="text-base text-gray-600 mt-2 line-clamp-2 max-w-3xl">
-                {dashboard.description}
-              </p>
-            )}
-          </div>
-        </div>
+        <DashboardMinimalHeader title={dashboard.title} description={dashboard.description} />
       )}
       {/* Mobile/Tablet Filters Section - Only show on non-desktop */}
       {!isEmbedMode && (
@@ -1347,7 +356,7 @@ export function DashboardNativeView({
         />
       )}
       {/* Main Content Area */}
-      <div className={cn('flex-1 flex overflow-hidden', isPrintMode && 'overflow-visible')}>
+      <div className={cn('flex-1 flex overflow-hidden')}>
         {/* Desktop Vertical Filters Sidebar — spans full height including tabs row */}
         {responsive.isDesktop && dashboardFilters.length > 0 && !isEmbedMode && (
           <UnifiedFiltersPanel
@@ -1366,49 +375,35 @@ export function DashboardNativeView({
         )}
 
         {/* Right side: Tab Bar + Canvas stacked vertically */}
-        <div
-          className={cn('flex-1 flex flex-col overflow-hidden', isPrintMode && 'overflow-visible')}
-        >
+        <div className={cn('flex-1 flex flex-col overflow-hidden')}>
           {/* Tab Bar sticky at top — only in non-report dashboard mode */}
           {!isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
-            <TabBar
+            <ViewTabBar
               tabs={tabsData.tabs}
               activeTabId={effectiveActiveTabId}
-              isEditMode={false}
               onTabChange={handleTabChange}
-              onTabAdd={() => {}} // No-op in view mode
-              onTabRemove={() => {}} // No-op in view mode
-              onTabRename={() => {}} // No-op in view mode
             />
           )}
 
           {/* Scrollable area:
               - Report mode: summary + tabs + canvas all scroll together
               - Dashboard mode: only canvas scrolls (tabs stay sticky above) */}
-          <div className={cn('flex-1 overflow-auto min-h-0', isPrintMode && 'overflow-visible')}>
+          <div className={cn('flex-1 overflow-auto min-h-0')}>
             {/* Summary scrolls with content (only set in report mode) */}
             {topRightContent}
 
             {/* Tab Bar inside scroll area — report mode only */}
             {isReportMode && shouldShowTabs && tabsData && effectiveActiveTabId && !isEmbedMode && (
-              <TabBar
+              <ViewTabBar
                 tabs={tabsData.tabs}
                 activeTabId={effectiveActiveTabId}
-                isEditMode={false}
                 onTabChange={handleTabChange}
-                onTabAdd={() => {}} // No-op in view mode
-                onTabRemove={() => {}} // No-op in view mode
-                onTabRename={() => {}} // No-op in view mode
               />
             )}
 
             {/* Dashboard Content - Canvas Area */}
             <div
-              className={cn(
-                'min-w-0 bg-gray-50 p-4 pb-[150px]',
-                isPublicMode && 'pb-24 sm:pb-16',
-                isPrintMode && 'overflow-visible pb-4'
-              )}
+              className={cn('min-w-0 bg-gray-50 p-4 pb-[150px]', isPublicMode && 'pb-24 sm:pb-16')}
             >
               <div
                 ref={(el) => {
@@ -1426,98 +421,16 @@ export function DashboardNativeView({
                 {/* Optional content above the chart grid (e.g. Executive Summary) */}
                 {beforeContent}
 
-                {/* Show empty state if no layout config */}
-                {(() => {
-                  const activeLayout = currentTab?.layout_config || [];
-                  return activeLayout.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <p className="text-lg mb-2">No Dashboard Components</p>
-                      <p className="text-sm">
-                        This dashboard doesn't have any components configured yet.
-                      </p>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Use exact layout for view mode - no height reduction needed since toolbar is now floating */}
-                {(() => {
-                  const modifiedLayout = currentTab?.layout_config || [];
-
-                  return effectiveScreenSize !== targetScreenSize ? (
-                    // Preview mode with different screen size - use responsive layout
-                    <ResponsiveGrid
-                      className="dashboard-grid"
-                      layouts={
-                        dashboard.responsive_layouts ||
-                        generateResponsiveLayoutsForPreview(modifiedLayout, targetScreenSize)
-                      }
-                      breakpoints={BREAKPOINTS}
-                      cols={COLS}
-                      rowHeight={20}
-                      width={actualContainerWidth}
-                      style={{
-                        width: '100% !important',
-                      }}
-                      isDraggable={false}
-                      isResizable={false}
-                      compactType={null}
-                      preventCollision={false}
-                      margin={[8, 8]}
-                      containerPadding={[8, 8]}
-                      autoSize={true}
-                      verticalCompact={false}
-                      onBreakpointChange={(newBreakpoint: string) => {
-                        setCurrentBreakpoint(newBreakpoint);
-                      }}
-                    >
-                      {modifiedLayout.map((layoutItem: any) => (
-                        <div key={layoutItem.i} className="dashboard-item">
-                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                            <CardContent className="p-2 h-full">
-                              {renderComponent(layoutItem.i)}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </ResponsiveGrid>
-                  ) : (
-                    // Target screen size or no preview override - grid model: render each
-                    // widget at its own (x,y,w,h) with gravity-up, matching the editor.
-                    <GridLayout
-                      className="dashboard-grid"
-                      // Pass the raw layout and let RGL's compactType="vertical" handle
-                      // compaction — identical to the editor canvas. A prior compactVertical()
-                      // pass here used a "global topmost free slot" search that let items jump
-                      // a full-width separator into an exactly-sized gap above it, so the view
-                      // reflowed differently from edit. See git history / dashboard 328.
-                      layout={modifiedLayout}
-                      cols={effectiveScreenConfig.cols}
-                      rowHeight={20}
-                      width={actualContainerWidth}
-                      style={{
-                        width: '100% !important',
-                      }}
-                      isDraggable={false}
-                      isResizable={false}
-                      compactType="vertical"
-                      preventCollision={false}
-                      allowOverlap={false}
-                      margin={[8, 8]}
-                      containerPadding={[8, 8]}
-                      autoSize={true}
-                    >
-                      {modifiedLayout.map((layoutItem: any) => (
-                        <div key={layoutItem.i} className="dashboard-item">
-                          <Card className="h-full shadow-sm hover:shadow-md transition-shadow duration-200 p-0 gap-0">
-                            <CardContent className="p-2 h-full">
-                              {renderComponent(layoutItem.i)}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </GridLayout>
-                  );
-                })()}
+                <DashboardViewGrid
+                  layout={currentTab?.layout_config || []}
+                  effectiveScreenSize={effectiveScreenSize}
+                  targetScreenSize={targetScreenSize}
+                  cols={effectiveScreenConfig.cols}
+                  responsiveLayouts={dashboard.responsive_layouts}
+                  containerWidth={actualContainerWidth}
+                  onBreakpointChange={setCurrentBreakpoint}
+                  renderComponent={renderComponent}
+                />
               </div>
             </div>
           </div>
@@ -1525,88 +438,10 @@ export function DashboardNativeView({
       </div>{' '}
       {/* Close Main Content Area */}
       {/* Custom styles for preview mode canvas */}
-      <style jsx global>{`
-        .dashboard-canvas {
-          position: relative;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .print-mode .dashboard-canvas {
-          overflow: visible !important;
-        }
-
-        .dashboard-canvas .dashboard-grid {
-          position: relative;
-          width: 100% !important;
-          height: 100%;
-        }
-
-        .dashboard-canvas .dashboard-item {
-          transition: transform 0.2s ease;
-          cursor: default;
-        }
-
-        .dashboard-canvas .dashboard-item:hover {
-          z-index: 10;
-        }
-
-        .dashboard-canvas .react-grid-item {
-          transition: none !important;
-        }
-
-        .dashboard-canvas .react-grid-item.react-grid-placeholder {
-          display: none !important;
-        }
-
-        /* Canvas border animations */
-        .dashboard-canvas {
-          animation: canvasAppear 0.3s ease-out;
-        }
-
-        @keyframes canvasAppear {
-          from {
-            opacity: 0;
-            transform: scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        /* Mobile-specific fixes for scrolling - ONLY for public dashboards */
-        ${isPublicMode
-          ? `
-          @media (max-width: 640px) {
-            html, body {
-              height: auto !important;
-              min-height: 100vh;
-              overflow-x: hidden;
-              -webkit-overflow-scrolling: touch;
-            }
-            
-            .dashboard-canvas {
-              max-width: calc(100vw - 2rem) !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-            }
-          }
-
-          /* iOS Safari specific fixes - ONLY for public dashboards */
-          @supports (-webkit-touch-callout: none) {
-            @media (max-width: 640px) {
-              .dashboard-canvas {
-                will-change: scroll-position;
-              }
-            }
-          }
-        `
-          : ''}
-      `}</style>
+      <DashboardCanvasStyles isPublicMode={isPublicMode} />
       <CelebrationModal
-        open={dashboardLiveModalOpen}
-        onOpenChange={setDashboardLiveModalOpen}
+        open={share.dashboardLiveModalOpen}
+        onOpenChange={share.setDashboardLiveModalOpen}
         title="Congratulations, you're officially live!"
         description="Your insights are built and your new dashboard is ready to go."
         ctaLabel="View Dashboard"
@@ -1619,11 +454,11 @@ export function DashboardNativeView({
           rtype="dashboard"
           entityId={dashboard.id}
           entityLabel={dashboard.title || 'Dashboard'}
-          isOpen={shareModalOpen}
-          onClose={handleShareModalClose}
-          onUpdate={handleDashboardUpdate}
-          onCopyLink={handleCopyLink}
-          onMadePublic={handleMadePublic}
+          isOpen={share.shareModalOpen}
+          onClose={share.handleShareModalClose}
+          onUpdate={share.handleDashboardUpdate}
+          onCopyLink={share.handleCopyLink}
+          onMadePublic={share.handleMadePublic}
         />
       )}
     </div>

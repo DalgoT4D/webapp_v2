@@ -123,8 +123,8 @@ jest.mock('sonner', () => ({
 }));
 
 // Mock heavy chart components to keep tests fast
-jest.mock('@/components/charts/ChartDataConfigurationV3', () => ({
-  ChartDataConfigurationV3: () => <div data-testid="mock-data-config" />,
+jest.mock('@/components/charts/ChartDataConfiguration', () => ({
+  ChartDataConfiguration: () => <div data-testid="mock-data-config" />,
 }));
 jest.mock('@/components/charts/ChartCustomizations', () => ({
   ChartCustomizations: () => <div data-testid="mock-chart-customizations" />,
@@ -141,13 +141,13 @@ jest.mock('@/components/charts/TableChart', () => ({
 jest.mock('@/components/charts/ChartExportDropdown', () => ({
   ChartExportDropdown: () => <div data-testid="mock-chart-export" />,
 }));
-jest.mock('@/components/charts/map/MapDataConfigurationV3', () => ({
-  MapDataConfigurationV3: () => <div data-testid="mock-map-config" />,
+jest.mock('@/components/charts/chart-types/map/MapDataConfiguration', () => ({
+  MapDataConfiguration: () => <div data-testid="mock-map-config" />,
 }));
-jest.mock('@/components/charts/map/MapCustomizations', () => ({
+jest.mock('@/components/charts/chart-types/map/MapCustomizations', () => ({
   MapCustomizations: () => <div data-testid="mock-map-customizations" />,
 }));
-jest.mock('@/components/charts/map/MapPreview', () => ({
+jest.mock('@/components/charts/chart-types/map/MapPreview', () => ({
   MapPreview: () => <div data-testid="mock-map-preview" />,
 }));
 jest.mock('@/components/charts/SaveOptionsDialog', () => ({

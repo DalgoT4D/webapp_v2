@@ -7,8 +7,9 @@ import type {
   SnapshotViewData,
   DiscoveredDatetimeColumn,
   CreateSnapshotPayload,
-  ShareStatus,
 } from '@/types/reports';
+import type { ApiResponse } from '@/types/api';
+import type { SnapshotFilterParams } from '@/components/reports/logic/report-list';
 
 // Re-export types for consumers
 export type {
@@ -18,20 +19,9 @@ export type {
   FrozenChartConfig,
 } from '@/types/reports';
 
-// API Response wrapper type (matches backend ApiResponse)
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
 // Hooks
 
-interface SnapshotFilters {
-  search?: string;
-  dashboard_title?: string;
-  created_by?: string;
-}
+type SnapshotFilters = SnapshotFilterParams;
 
 export function useSnapshots(filters?: SnapshotFilters) {
   const params = new URLSearchParams();
@@ -88,30 +78,6 @@ export function useDashboardDatetimeColumns(dashboardId: number | null) {
     { revalidateOnFocus: false }
   );
   return { columns: data?.data || [], isLoading, error };
-}
-
-// Sharing mutations
-
-export async function updateReportSharing(
-  snapshotId: number,
-  data: { is_public: boolean }
-): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiPut(
-    `/api/reports/${snapshotId}/share/`,
-    data
-  );
-  // Tracked here rather than at the call site because ShareViaLinkDialog wraps
-  // components/ui/share-modal, which we keep free of analytics. Only going public fires:
-  // un-sharing is not an outcome we measure (mirrors updateDashboardSharing).
-  if (data.is_public) {
-    trackEvent(ANALYTICS_EVENTS.REPORT_MADE_PUBLIC, { report_id: snapshotId });
-  }
-  return response.data;
-}
-
-export async function getReportSharingStatus(snapshotId: number): Promise<ShareStatus> {
-  const response: ApiResponse<ShareStatus> = await apiGet(`/api/reports/${snapshotId}/share/`);
-  return response.data;
 }
 
 // Share via email

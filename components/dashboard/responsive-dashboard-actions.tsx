@@ -9,18 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { MoreVertical, Share2, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { MoreVertical, Share2, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
@@ -61,12 +50,6 @@ export function ResponsiveDashboardActions({
   if (responsive.isDesktop) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
-        {/* COMMENTED OUT: Refresh button - not needed in view mode */}
-        {/* {onRefresh && (
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing}>
-            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-          </Button>
-        )} */}
         {canShare && (
           <Button
             variant="outline"
@@ -80,38 +63,14 @@ export function ResponsiveDashboardActions({
         )}
         {canEdit && (
           <>
-            <Button onClick={onEdit} size="sm">
+            <Button
+              onClick={onEdit}
+              size="sm"
+              data-testid={suppressShareTestId ? 'dashboard-edit-btn-mobile' : 'dashboard-edit-btn'}
+            >
               <Edit className="w-4 h-4 mr-2" />
               Edit Dashboard
             </Button>
-            {/* COMMENTED OUT: Delete button - not needed in view mode */}
-            {/* <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" disabled={isDeleting}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete "{dashboardTitle}"? This action cannot be undone
-                    and will permanently remove all dashboard content and configuration.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={onDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog> */}
           </>
         )}
       </div>
@@ -121,29 +80,32 @@ export function ResponsiveDashboardActions({
   // Mobile/Tablet: Use compact dropdown menu
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      {/* COMMENTED OUT: Refresh button - not needed in view mode */}
-      {/* {onRefresh && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          className="p-2"
-        >
-          <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-        </Button>
-      )} */}
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="p-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="p-2"
+            data-testid={
+              suppressShareTestId
+                ? 'dashboard-actions-menu-trigger-mobile'
+                : 'dashboard-actions-menu-trigger'
+            }
+          >
             <MoreVertical className="w-4 h-4" />
             <span className="sr-only">Dashboard actions</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           {canShare && (
-            <DropdownMenuItem onClick={onShare}>
+            <DropdownMenuItem
+              onClick={onShare}
+              data-testid={
+                suppressShareTestId
+                  ? 'dashboard-actions-share-item-mobile'
+                  : 'dashboard-actions-share-item'
+              }
+            >
               <Share2 className="w-4 h-4 mr-2" />
               Share Dashboard
             </DropdownMenuItem>
@@ -152,49 +114,21 @@ export function ResponsiveDashboardActions({
           {canEdit && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onEdit}>
+              <DropdownMenuItem
+                onClick={onEdit}
+                data-testid={
+                  suppressShareTestId
+                    ? 'dashboard-actions-edit-item-mobile'
+                    : 'dashboard-actions-edit-item'
+                }
+              >
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Dashboard
               </DropdownMenuItem>
-              {/* COMMENTED OUT: Delete option - not needed in view mode */}
-              {/* <DropdownMenuItem
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-destructive focus:text-destructive"
-                disabled={isDeleting}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Dashboard
-              </DropdownMenuItem> */}
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* COMMENTED OUT: Delete confirmation dialog - not needed in view mode */}
-      {/* <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Dashboard</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{dashboardTitle}"? This action cannot be undone and
-              will permanently remove all dashboard content and configuration.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowDeleteDialog(false);
-                onDelete();
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog> */}
     </div>
   );
 }

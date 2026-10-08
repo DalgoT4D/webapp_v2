@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,51 +12,28 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Combobox, type ComboboxItem } from '@/components/ui/combobox';
-import { DatePicker } from '@/components/ui/date-picker';
-import { useDatePickerWithConfirm } from '@/hooks/useDatePickerWithConfirm';
 import { Camera } from 'lucide-react';
 import { toastSuccess, toastError } from '@/lib/toast';
 import { createSnapshot, useDashboardDatetimeColumns } from '@/hooks/api/useReports';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
-import type { DateColumn } from '@/types/reports';
 import { useDashboards, useDashboard, type Dashboard } from '@/hooks/api/useDashboards';
+import {
+  buildCreateReportPayload,
+  getStartMaxDate,
+  pickDefaultDateColumn,
+  toDateColumnValue,
+  type SnapshotFormData,
+} from '@/components/reports/logic/create-report';
+import { DateColumnField } from '@/components/reports/create/DateColumnField';
+import { ReportDurationFields } from '@/components/reports/create/ReportDurationFields';
 
 interface CreateSnapshotDialogProps {
   dashboardId?: number;
   dashboardTitle?: string;
   onCreated?: () => void;
   trigger?: React.ReactNode;
-}
-
-interface SnapshotFormData {
-  selectedDashboardId: string;
-  reportName: string;
-  selectedDateColumn: string;
-  periodStart: Date | undefined;
-  periodEnd: Date | undefined;
-}
-
-/** Wrapper that pairs the stateless DatePicker with confirm/cancel staging logic. */
-function ConfirmDatePicker({
-  value,
-  onChange,
-  maxDate,
-}: {
-  value: Date | undefined;
-  onChange: (date: Date | undefined) => void;
-  maxDate?: Date;
-}) {
-  const pickerProps = useDatePickerWithConfirm(value, onChange);
-  return <DatePicker value={value} {...pickerProps} maxDate={maxDate} />;
 }
 
 export function CreateSnapshotDialog({
@@ -119,10 +95,9 @@ export function CreateSnapshotDialog({
   useEffect(() => {
     if (columnsLoading || discoveredColumns.length === 0 || selectedDateColumn) return;
 
-    const dashboardFilter = discoveredColumns.find((col) => col.is_dashboard_filter);
-    const col = dashboardFilter ?? (discoveredColumns.length === 1 ? discoveredColumns[0] : null);
+    const col = pickDefaultDateColumn(discoveredColumns);
     if (col) {
-      setValue('selectedDateColumn', `${col.schema_name}.${col.table_name}.${col.column_name}`);
+      setValue('selectedDateColumn', toDateColumnValue(col));
     }
   }, [columnsLoading, discoveredColumns, selectedDateColumn, setValue]);
 
@@ -148,19 +123,7 @@ export function CreateSnapshotDialog({
   const onSubmit = async (data: SnapshotFormData) => {
     setIsSubmitting(true);
     try {
-      const payload: Parameters<typeof createSnapshot>[0] = {
-        title: data.reportName.trim(),
-        dashboard_id: effectiveDashboardId!,
-      };
-
-      if (hasDatetimeColumns && data.selectedDateColumn) {
-        const [schema_name, table_name, column_name] = data.selectedDateColumn.split('.');
-        payload.date_column = { schema_name, table_name, column_name } as DateColumn;
-        payload.period_start = data.periodStart
-          ? format(data.periodStart, 'yyyy-MM-dd')
-          : undefined;
-        payload.period_end = data.periodEnd ? format(data.periodEnd, 'yyyy-MM-dd') : undefined;
-      }
+      const payload = buildCreateReportPayload(data, effectiveDashboardId!, hasDatetimeColumns);
 
       const snapshot = await createSnapshot(payload);
       // GENERATE REPORT is the only way a report is born, and this is its success path.
@@ -185,7 +148,7 @@ export function CreateSnapshotDialog({
   const today = new Date();
 
   // Start date cannot exceed the earlier of periodEnd or today
-  const startMaxDate = periodEnd && periodEnd < today ? periodEnd : today;
+  const startMaxDate = getStartMaxDate(periodEnd, today);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -215,6 +178,7 @@ export function CreateSnapshotDialog({
                   rules={{ required: 'Please select a dashboard' }}
                   render={({ field }) => (
                     <Combobox
+                      id="snapshot-dashboard-select"
                       items={dashboardItems}
                       value={field.value}
                       onValueChange={(val) => {
@@ -227,11 +191,18 @@ export function CreateSnapshotDialog({
                   )}
                 />
                 {errors.selectedDashboardId && (
-                  <p className="text-sm text-red-500">{errors.selectedDashboardId.message}</p>
+                  <p className="text-sm text-red-500" data-testid="snapshot-dashboard-error">
+                    {errors.selectedDashboardId.message}
+                  </p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{preselectedDashboardTitle}</p>
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="snapshot-preselected-dashboard"
+              >
+                {preselectedDashboardTitle}
+              </p>
             )}
           </div>
 
@@ -249,109 +220,36 @@ export function CreateSnapshotDialog({
               })}
             />
             {errors.reportName && (
-              <p className="text-sm text-red-500">{errors.reportName.message}</p>
+              <p className="text-sm text-red-500" data-testid="snapshot-report-name-error">
+                {errors.reportName.message}
+              </p>
             )}
           </div>
 
           {/* Filter by */}
-          <div className={!hasDatetimeColumns ? 'opacity-50' : ''}>
-            <div className="space-y-2">
-              <Label className="font-semibold">
-                Filter by {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
-              </Label>
-              {!hasDatetimeColumns && effectiveDashboardId && !columnsLoading && dashboardData && (
-                <p className="text-sm text-muted-foreground">
-                  No datetime columns found — date filtering will be skipped.
-                </p>
-              )}
-              <Controller
-                name="selectedDateColumn"
-                control={control}
-                rules={hasDatetimeColumns ? { required: 'Please select a date-time column' } : {}}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={!hasDatetimeColumns || !effectiveDashboardId || columnsLoading}
-                  >
-                    <SelectTrigger data-testid="snapshot-date-column">
-                      <SelectValue
-                        placeholder={
-                          columnsLoading
-                            ? 'Discovering date columns...'
-                            : !hasDatetimeColumns
-                              ? 'No date columns available'
-                              : 'Pick the date-time column to filter by'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {discoveredColumns.map((col) => {
-                        const value = `${col.schema_name}.${col.table_name}.${col.column_name}`;
-                        return (
-                          <SelectItem key={value} value={value}>
-                            {col.table_name}.{col.column_name}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.selectedDateColumn && (
-                <p className="text-sm text-red-500">{errors.selectedDateColumn.message}</p>
-              )}
-            </div>
-          </div>
+          <DateColumnField
+            control={control}
+            errors={errors}
+            columns={discoveredColumns}
+            hasDatetimeColumns={hasDatetimeColumns}
+            effectiveDashboardId={effectiveDashboardId}
+            columnsLoading={columnsLoading}
+            hasDashboardData={!!dashboardData}
+          />
 
           {/* Duration */}
-          <div className={!hasDatetimeColumns ? 'opacity-50 pointer-events-none' : ''}>
-            <div className="space-y-2">
-              <Label className="font-semibold">
-                Duration {hasDatetimeColumns && <span className="text-red-600 ml-1">*</span>}
-              </Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground">Start date</span>
-                  <Controller
-                    name="periodStart"
-                    control={control}
-                    render={({ field }) => (
-                      <ConfirmDatePicker
-                        value={field.value}
-                        onChange={field.onChange}
-                        maxDate={startMaxDate}
-                      />
-                    )}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground">
-                    End date {hasDatetimeColumns && <span className="text-red-600">*</span>}
-                  </span>
-                  <Controller
-                    name="periodEnd"
-                    control={control}
-                    rules={hasDatetimeColumns ? { required: 'Please select an end date' } : {}}
-                    render={({ field }) => (
-                      <ConfirmDatePicker
-                        value={field.value}
-                        onChange={field.onChange}
-                        maxDate={today}
-                      />
-                    )}
-                  />
-                  {errors.periodEnd && (
-                    <p className="text-sm text-red-500">{errors.periodEnd.message}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ReportDurationFields
+            control={control}
+            errors={errors}
+            hasDatetimeColumns={hasDatetimeColumns}
+            startMaxDate={startMaxDate}
+            today={today}
+          />
         </div>
 
         {/* Buttons - left aligned */}
         <div className="flex gap-3 pt-2">
+          {/* PINNED-BUGS: "Cancel doesn't reset create form (old name/date column shown, picker input empty)" — closes only; resetForm runs after a successful create */}
           <Button data-testid="snapshot-cancel-btn" variant="cancel" onClick={() => setOpen(false)}>
             Cancel
           </Button>

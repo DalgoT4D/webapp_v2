@@ -15,7 +15,7 @@ export interface DashboardLayoutItem {
   maxH?: number;
 }
 
-// Enum for dashboard component types - matches DashboardComponent in dashboard-builder-v2
+// Enum for dashboard component types - matches DashboardComponent in dashboard-builder
 export enum DashboardComponentType {
   CHART = 'chart',
   TEXT = 'text',

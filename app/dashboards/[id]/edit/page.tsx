@@ -2,15 +2,19 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { DashboardBuilderV2 } from '@/components/dashboard/dashboard-builder-v2';
+import { DashboardBuilder } from '@/components/dashboard/dashboard-builder';
 import { useDashboard } from '@/hooks/api/useDashboards';
+import {
+  useLockReleaseOnLeave,
+  type BuilderCleanupHandle,
+} from '@/components/dashboard/hooks/useDashboardLock';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Lock, User, Clock, AlertTriangle, Eye, Loader2 } from 'lucide-react';
-import { apiDelete } from '@/lib/api';
+import { ArrowLeft, Lock, User, Clock, AlertTriangle } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
+import { hasEditAccess } from '@/components/access/logic/resource-permissions';
 
 export default function EditDashboardPage() {
   const params = useParams();
@@ -20,7 +24,7 @@ export default function EditDashboardPage() {
   const isNewDashboard = searchParams.get('new') === 'true';
 
   // Ref to access dashboard builder cleanup function
-  const dashboardBuilderRef = useRef<{ cleanup: () => Promise<boolean> } | null>(null);
+  const dashboardBuilderRef = useRef<BuilderCleanupHandle | null>(null);
 
   // Get current user info
   const getCurrentOrgUser = useAuthStore((state) => state.getCurrentOrgUser);
@@ -29,15 +33,16 @@ export default function EditDashboardPage() {
   // Fetch the dashboard. A viewer (member with view access) can load it — the
   // backend returns 404 if they can't even view. Whether they may *edit* is
   // gated below on the per-resource `access_level`, not on a role permission.
-  const { data: dashboard, isLoading, isError, mutate } = useDashboard(dashboardId);
+  const { data: dashboard, isLoading, mutate } = useDashboard(dashboardId);
 
   // Can this user EDIT this specific dashboard? Per-resource access from the API
   // (grants + org floor + ownership). Undefined until the dashboard loads.
-  const canEditDashboard = dashboard?.access_level === 'edit';
+  const canEditDashboard = hasEditAccess(dashboard?.access_level);
 
   // Check if dashboard is locked by another user
   // Only block access if dashboard is locked AND locked by someone else
   // If locked by current user, they can continue editing
+  // PINNED-BUGS: "Same user in two tabs isn't blocked by own lock"
   const isLockedByOther =
     dashboard?.is_locked && dashboard?.locked_by && dashboard.locked_by !== currentUser?.email;
 
@@ -96,85 +101,8 @@ export default function EditDashboardPage() {
     router.push('/dashboards');
   };
 
-  // Direct API call to unlock dashboard - bypasses the full cleanup chain
-  const emergencyUnlock = async () => {
-    try {
-      await apiDelete(`/api/dashboards/${dashboardId}/lock/`);
-    } catch (error) {
-      console.error(`Failed to unlock dashboard ${dashboardId}:`, error);
-    }
-  };
-
-  // Clean up on route change or component unmount
-  useEffect(() => {
-    // No lock was taken for users without edit permission — never fire the
-    // unlock/cleanup calls for them
-    if (!canEditDashboard) return undefined;
-
-    // Function to handle cleanup synchronously for critical scenarios
-    const handleSyncCleanup = () => {
-      // First try emergency unlock (direct API call)
-      emergencyUnlock();
-
-      // Then also try the full cleanup chain as backup
-      if (dashboardBuilderRef.current?.cleanup) {
-        // Fire and forget - don't wait for async completion during sync cleanup
-        dashboardBuilderRef.current.cleanup().catch((error) => {
-          console.error('Error during dashboard cleanup:', error);
-        });
-      }
-    };
-
-    // Handle browser navigation (back/forward buttons, direct navigation)
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      handleSyncCleanup();
-    };
-
-    // Handle popstate for browser back/forward
-    const handlePopState = () => {
-      handleSyncCleanup();
-    };
-
-    // Handle page visibility change (when tab becomes hidden/inactive)
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleSyncCleanup();
-      }
-    };
-
-    // Intercept link clicks to dashboard-related routes
-    const handleLinkClick = (e: Event) => {
-      const target = e.target as HTMLElement;
-      const link = target.closest('a[href]') as HTMLAnchorElement;
-
-      if (link && link.href) {
-        const url = new URL(link.href, window.location.origin);
-        // Check if navigating away from current edit page
-        if (url.pathname !== window.location.pathname) {
-          handleSyncCleanup();
-        }
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handlePopState);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('click', handleLinkClick, true); // Use capture phase
-
-    // Cleanup function that runs when component unmounts
-    // This is for Next.js router navigation
-    return () => {
-      // Use sync cleanup during unmount to avoid race conditions
-      handleSyncCleanup();
-
-      // Clean up event listeners
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('click', handleLinkClick, true);
-    };
-  }, [dashboardId, canEditDashboard]);
+  // Page-leave listeners: release the lock on popstate, tab hide, unload, links away, unmount.
+  useLockReleaseOnLeave(dashboardId, canEditDashboard, dashboardBuilderRef);
 
   // Handle navigation to preview mode
   const handlePreviewMode = async () => {
@@ -248,7 +176,11 @@ export default function EditDashboardPage() {
           </div>
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
           <p className="text-muted-foreground mb-4">You have view-only access to this dashboard.</p>
-          <Button variant="outline" onClick={() => router.push('/dashboards')}>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboards')}
+            data-testid="dashboard-edit-access-denied-back-btn"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboards
           </Button>
@@ -265,7 +197,12 @@ export default function EditDashboardPage() {
       <div className="border-b px-6 py-3 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={handleBackNavigation}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBackNavigation}
+              data-testid="dashboard-locked-back-btn"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboards
             </Button>
@@ -282,7 +219,9 @@ export default function EditDashboardPage() {
             <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
               <Lock className="w-6 h-6 text-yellow-600" />
             </div>
-            <CardTitle className="text-xl">Dashboard is Currently Locked</CardTitle>
+            <CardTitle className="text-xl" data-testid="dashboard-locked-title">
+              Dashboard is Currently Locked
+            </CardTitle>
             <CardDescription>This dashboard is being edited by another user</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -320,10 +259,19 @@ export default function EditDashboardPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => mutate()}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => mutate()}
+                data-testid="dashboard-locked-refresh-btn"
+              >
                 Refresh Now
               </Button>
-              <Button className="flex-1" onClick={handleBackNavigation}>
+              <Button
+                className="flex-1"
+                onClick={handleBackNavigation}
+                data-testid="dashboard-locked-go-back-btn"
+              >
                 Go Back
               </Button>
             </div>
@@ -339,7 +287,7 @@ export default function EditDashboardPage() {
   }
 
   return (
-    <DashboardBuilderV2
+    <DashboardBuilder
       ref={dashboardBuilderRef}
       dashboardId={dashboardId}
       initialData={dashboardData}

@@ -1,63 +1,24 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { ChartElementView } from '@/components/dashboard/chart-element-view';
-import { UnifiedTextElement } from '@/components/dashboard/text-element-unified';
+import { ChartElementView } from '@/components/dashboard/widgets/chart/chart-element-view';
+import { UnifiedTextElement } from '@/components/dashboard/widgets/text/text-element-unified';
+import { LegacyHeading } from '@/components/dashboard/widgets/view-widgets';
 import type { Dashboard } from '@/hooks/api/useDashboards';
 import type { FrozenChartConfig } from '@/types/reports';
-
-const ROW_HEIGHT_PX = 20;
-const MIN_CHART_HEIGHT_PX = 300;
-// Without a floor, a short text/image widget (small `h`) can compute to a
-// near-zero height, letting its content overflow rather than render at all.
-const MIN_TEXT_HEIGHT_PX = 60;
+import {
+  getPrintChartHeight,
+  getPrintTextHeight,
+  groupLayoutByRows,
+  type PrintLayoutItem,
+} from '@/components/reports/logic/print-rows';
 
 interface PrintLayoutProps {
   dashboardData: Dashboard;
   frozenChartConfigs: Record<string, FrozenChartConfig>;
   publicToken: string;
   isPublicMode?: boolean;
-  dashboardFilters?: Record<string, any>; // Currently-applied filter values to bake into the PDF/print capture
-}
-
-interface LayoutItem {
-  i: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-interface RowGroup {
-  y: number;
-  items: LayoutItem[];
-}
-
-function groupLayoutByRows(
-  layoutConfig: LayoutItem[],
-  components: Record<string, any>
-): RowGroup[] {
-  const filtered = layoutConfig.filter((item) => {
-    const component = components[item.i];
-    return component && component.type !== 'filter';
-  });
-
-  const byY = new Map<number, LayoutItem[]>();
-  for (const item of filtered) {
-    const row = byY.get(item.y) || [];
-    row.push(item);
-    byY.set(item.y, row);
-  }
-
-  const rows: RowGroup[] = [];
-  for (const [y, items] of byY) {
-    items.sort((a, b) => a.x - b.x);
-    rows.push({ y, items });
-  }
-  rows.sort((a, b) => a.y - b.y);
-
-  return rows;
+  dashboardFilters?: Record<string, unknown>; // Currently-applied filter values to bake into the PDF/print capture
 }
 
 export function PrintLayout({
@@ -69,13 +30,16 @@ export function PrintLayout({
 }: PrintLayoutProps) {
   const tabs = dashboardData.tabs || [];
 
-  const renderItem = (layoutItem: LayoutItem, components: Record<string, any>) => {
+  // any: component.config.chartId is read as number, component.config is passed to
+  // UnifiedTextElement's UnifiedTextConfig prop, and component.type is compared against the
+  // legacy 'heading' literal (not a DashboardComponentType member) — kept any, see Task 13 row 16
+  const renderItem = (layoutItem: PrintLayoutItem, components: Record<string, any>) => {
     const component = components[layoutItem.i];
     if (!component) return null;
 
     switch (component.type) {
       case 'chart': {
-        const height = Math.max(layoutItem.h * ROW_HEIGHT_PX, MIN_CHART_HEIGHT_PX);
+        const height = getPrintChartHeight(layoutItem.h);
         return (
           <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0 }}>
             <Card className="h-full shadow-sm p-0 gap-0">
@@ -102,7 +66,7 @@ export function PrintLayout({
       }
 
       case 'text': {
-        const height = Math.max(layoutItem.h * ROW_HEIGHT_PX, MIN_TEXT_HEIGHT_PX);
+        const height = getPrintTextHeight(layoutItem.h);
         return (
           <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0, height }}>
             <UnifiedTextElement config={component.config} onUpdate={() => {}} isEditMode={false} />
@@ -111,23 +75,10 @@ export function PrintLayout({
       }
 
       case 'heading': {
-        const level = component.config?.level || 2;
-        const headingStyles = cn(
-          'text-gray-900 font-semibold',
-          level === 1 && 'text-2xl',
-          level === 2 && 'text-xl',
-          level === 3 && 'text-lg'
-        );
-        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
         return (
           <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0 }}>
             <div className="p-4 flex items-center">
-              <HeadingTag
-                className={headingStyles}
-                style={{ color: component.config?.color || '#1f2937' }}
-              >
-                {component.config?.text || 'Heading'}
-              </HeadingTag>
+              <LegacyHeading config={component.config} />
             </div>
           </div>
         );
@@ -142,7 +93,7 @@ export function PrintLayout({
     <div className="px-2 py-2">
       {tabs.map((tab) => {
         const tabComponents = tab.components || {};
-        const tabLayout: LayoutItem[] = (tab.layout_config as LayoutItem[]) || [];
+        const tabLayout: PrintLayoutItem[] = (tab.layout_config as PrintLayoutItem[]) || [];
         const tabRows = groupLayoutByRows(tabLayout, tabComponents);
         return tabRows.map((row) => (
           <div

@@ -9,11 +9,15 @@ import type {
   ChartUpdate,
   ChartDataPayload,
   ChartDataResponse,
-  ChartMetric,
   DataPreviewResponse,
 } from '@/types/charts';
 import { DashboardFilter } from './useDashboards';
 import { ResolvedDashboardFilter } from '@/lib/dashboard-filter-utils';
+// This API layer reaches into a feature folder for a pure function; to be moved in R6.
+import {
+  transformMapDataOverlayPayload,
+  type MapDataOverlayRawPayload,
+} from '@/components/charts/logic/map-overlay';
 
 // Fetchers
 const chartsFetcher = (url: string) => apiGet(url);
@@ -157,19 +161,7 @@ export function useChartDataPreviewTotalRows(
   });
 }
 
-// Chart export hook
-export function useChartExport() {
-  return useSWRMutation(
-    '/api/charts/export/',
-    (url: string, { arg }: { arg: { chart_id: number; format: string } }) => apiPost(url, arg)
-  );
-}
-
 // Warehouse hooks for chart builder
-export function useSchemas() {
-  return useSWR<string[]>('/api/warehouse/schemas', apiGet);
-}
-
 export function useTables(schema: string | null) {
   return useSWR<any[]>(schema ? `/api/warehouse/tables/${schema}` : null, apiGet);
 }
@@ -260,19 +252,7 @@ export function useTableCount(schema: string | null, table: string | null) {
 // Re-export types for convenience
 export type { ChartDataPayload, ChartCreate as ChartCreatePayload } from '@/types/charts';
 
-// Alias for backward compatibility with tests
-export const useChartSave = useCreateChart;
-
 // Map-specific hooks
-
-export interface GeoJSONListItem {
-  id: number;
-  name: string;
-  display_name: string;
-  is_default: boolean;
-  layer_name: string;
-  properties_key: string;
-}
 
 export interface GeoJSONDetail {
   id: number;
@@ -282,15 +262,7 @@ export interface GeoJSONDetail {
   properties_key: string;
 }
 
-const geojsonListFetcher = (url: string) => apiGet(url);
 const geojsonDetailFetcher = (url: string) => apiGet(url);
-
-export function useAvailableGeoJSONs(countryCode: string = 'IND', layerLevel: number = 1) {
-  return useSWR(
-    `/api/charts/geojsons/?country_code=${countryCode}&layer_level=${layerLevel}`,
-    geojsonListFetcher
-  );
-}
 
 export function useGeoJSONData(geojsonId: number | null) {
   return useSWR(geojsonId ? `/api/charts/geojsons/${geojsonId}/` : null, geojsonDetailFetcher);
@@ -346,123 +318,12 @@ export function useRegionGeoJSONs(regionId: number | null | undefined) {
   );
 }
 
-// New hook for region hierarchy
-const regionHierarchyFetcher = (url: string) => apiGet(url);
-
-export function useRegionHierarchy(countryCode: string = 'IND') {
-  return useSWR(
-    countryCode ? `/api/charts/hierarchy/?country=${countryCode}` : null,
-    regionHierarchyFetcher
-  );
-}
-
-export function useMapData(payload: ChartDataPayload | null) {
-  return useSWR(
-    payload ? ['/api/charts/map-data/', payload] : null,
-    ([url, data]: [string, ChartDataPayload]) => apiPost(url, data)
-  );
-}
-
 // New hooks for separated data fetching
-
-export interface LayerOption {
-  id: number;
-  code: string;
-  name: string;
-  display_name: string;
-  type: string;
-  parent_id: number | null;
-}
-
-// Fetch available layers (countries, states, districts, etc.) dynamically
-export function useAvailableLayers(layerType: string = 'country') {
-  return useSWR<LayerOption[]>(`/api/charts/available-layers/?layer_type=${layerType}`, apiGet);
-}
 
 // Get region hierarchy by fetching all available region types for a country
 export function useAvailableRegionTypes(countryCode: string = 'IND') {
   // First, get all regions without specifying type to see what types are available
   return useSWR(`/api/charts/regions/?country_code=${countryCode}`, apiGet);
-}
-
-// Get the next layer type by looking at child regions of a specific parent
-export function useNextLayerType(parentRegionId: number | null) {
-  return useSWR(parentRegionId ? `/api/charts/regions/${parentRegionId}/children/` : null, apiGet);
-}
-
-export interface MapDataOverlayRawPayload {
-  schema_name: string;
-  table_name: string;
-  geographic_column: string;
-  // Preferred: the actual metric (supports calculated/column_expression metrics).
-  metric?: ChartMetric;
-  // Legacy fields, used when `metric` isn't provided (charts saved before the metrics array existed).
-  value_column?: string;
-  aggregate_function?: string;
-  filters?: Record<string, any>;
-  dashboard_filters?: Record<string, any>;
-  extra_config?: {
-    filters?: any[];
-    pagination?: any;
-    sort?: any[];
-  };
-}
-
-// Builds the overlay payload for a Simple-mode metric (aggregation + column).
-// Returns null when there isn't enough information to run the aggregation.
-function buildSimpleMapOverlayPayload(payload: MapDataOverlayRawPayload, metric?: ChartMetric) {
-  const aggregation = metric?.aggregation || payload.aggregate_function;
-  const column = metric?.column || payload.value_column;
-  if (!aggregation || (!column && aggregation !== 'count')) {
-    return null;
-  }
-
-  return {
-    schema_name: payload.schema_name,
-    table_name: payload.table_name,
-    geographic_column: payload.geographic_column,
-    value_column: column || payload.geographic_column,
-    metrics: [
-      {
-        column: column || (aggregation === 'count' ? payload.geographic_column : null),
-        aggregation,
-        alias: 'value',
-      },
-    ],
-    filters: payload.filters || {},
-    dashboard_filters: payload.dashboard_filters || {},
-    extra_config: payload.extra_config || {},
-  };
-}
-
-// Builds the overlay payload for a Calculated-mode metric (column_expression).
-function buildCalculatedMapOverlayPayload(payload: MapDataOverlayRawPayload, metric: ChartMetric) {
-  return {
-    schema_name: payload.schema_name,
-    table_name: payload.table_name,
-    geographic_column: payload.geographic_column,
-    metrics: [
-      {
-        column_expression: metric.column_expression,
-        alias: 'value',
-      },
-    ],
-    filters: payload.filters || {},
-    dashboard_filters: payload.dashboard_filters || {},
-    extra_config: payload.extra_config || {},
-  };
-}
-
-// Transform raw map overlay payload to match backend requirements.
-// For count operations, value_column may be absent — falls back to geographic_column.
-export function transformMapDataOverlayPayload(payload: MapDataOverlayRawPayload | null) {
-  if (!payload || !payload.schema_name || !payload.table_name || !payload.geographic_column) {
-    return null;
-  }
-
-  return payload.metric?.column_expression
-    ? buildCalculatedMapOverlayPayload(payload, payload.metric)
-    : buildSimpleMapOverlayPayload(payload, payload.metric);
 }
 
 // Fetch map data separately (for data overlay on existing GeoJSON)

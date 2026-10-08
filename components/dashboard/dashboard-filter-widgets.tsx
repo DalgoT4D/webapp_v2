@@ -110,32 +110,6 @@ function ValueFilterWidget({
   // Use dynamically fetched options
   const availableOptions = filterOptions?.options || [];
 
-  const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
-    if (!optionValue) return; // Guard against invalid option values
-
-    let newSelection: string[];
-
-    if (valueFilter.settings?.can_select_multiple) {
-      if (isChecked) {
-        newSelection = [...(selectedValues || []), optionValue];
-      } else {
-        newSelection = (selectedValues || []).filter((v) => v !== optionValue);
-      }
-    } else {
-      newSelection = isChecked ? [optionValue] : [];
-    }
-
-    const finalValue =
-      newSelection.length === 0
-        ? null
-        : valueFilter.settings.can_select_multiple
-          ? newSelection
-          : newSelection[0];
-
-    setSelectedValues(newSelection);
-    onChange(filter.id, finalValue);
-  };
-
   return (
     <div
       className={cn(
@@ -184,6 +158,7 @@ function ValueFilterWidget({
           </div>
         ) : valueFilter.settings?.can_select_multiple ? (
           <Combobox
+            id={`dashboard-filter-value-${filter.id}`}
             mode="multi"
             items={availableOptions.map((opt: FilterOption) => ({
               value: opt.value,
@@ -201,6 +176,7 @@ function ValueFilterWidget({
           />
         ) : (
           <Combobox
+            id={`dashboard-filter-value-${filter.id}`}
             items={availableOptions.map((opt: FilterOption) => ({
               value: opt.value,
               label: opt.label,
@@ -338,16 +314,6 @@ function NumericalFilterWidget({
     }
   };
 
-  const handleReset = () => {
-    const defaultValue = {
-      min: numericalFilter.settings.default_min || minValue,
-      max: numericalFilter.settings.default_max || maxValue,
-    };
-
-    setLocalValue(defaultValue);
-    onChange(filter.id, defaultValue);
-  };
-
   const getSliderValue = (): number[] => {
     return [localValue.min, localValue.max];
   };
@@ -400,6 +366,7 @@ function NumericalFilterWidget({
               max={maxValue}
               step={step}
               className="w-full"
+              data-testid={`dashboard-filter-slider-${filter.id}`}
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
               <span>{minValue}</span>
@@ -423,6 +390,7 @@ function NumericalFilterWidget({
                   step={step}
                   className="text-center h-7 text-xs"
                   placeholder="Min"
+                  data-testid={`dashboard-filter-min-input-${filter.id}`}
                 />
               </div>
               <div>
@@ -438,6 +406,7 @@ function NumericalFilterWidget({
                   step={step}
                   className="text-center h-7 text-xs"
                   placeholder="Max"
+                  data-testid={`dashboard-filter-max-input-${filter.id}`}
                 />
               </div>
             </div>

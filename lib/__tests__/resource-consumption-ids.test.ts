@@ -31,13 +31,13 @@ interface Edge {
 const EDGES: Edge[] = [
   {
     label: 'a chart placed on a dashboard',
-    file: 'components/dashboard/dashboard-builder-v2.tsx',
+    file: 'components/dashboard/widgets/add-widget-handlers.ts',
     event: 'DASHBOARD_CHART_ADDED',
     ids: ['chart_id', 'dashboard_id'],
   },
   {
     label: 'a KPI placed on a dashboard',
-    file: 'components/dashboard/dashboard-builder-v2.tsx',
+    file: 'components/dashboard/widgets/add-widget-handlers.ts',
     event: 'DASHBOARD_KPI_ADDED',
     ids: ['kpi_id', 'dashboard_id'],
   },
@@ -49,7 +49,7 @@ const EDGES: Edge[] = [
   },
   {
     label: 'a dashboard copied from another',
-    file: 'components/dashboard/dashboard-list-v2.tsx',
+    file: 'components/dashboard/dashboard-list.tsx',
     event: 'DASHBOARD_DUPLICATED',
     ids: ['dashboard_id', 'new_dashboard_id'],
   },
@@ -67,7 +67,7 @@ const EDGES: Edge[] = [
   },
   {
     label: 'a metric charted',
-    file: 'app/charts/new/configure/page.tsx',
+    file: 'components/charts/hooks/useSaveNewChart.ts', // the chart create page's save
     event: 'METRIC_USED',
     ids: ['metric_id', 'chart_id'],
   },

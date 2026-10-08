@@ -16,6 +16,7 @@ import * as useReportsHook from '@/hooks/api/useReports';
 import * as toastModule from '@/lib/toast';
 import { createMockSnapshotViewData } from './report-mock-data';
 import { TestWrapper } from '@/test-utils/render';
+import type { CommentStates } from '@/types/comments';
 
 // ============ Mocks ============
 
@@ -32,7 +33,7 @@ const mockBack = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, back: mockBack }),
   useParams: () => ({ snapshotId: '1' }),
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => ({ get: (): string | null => null }),
 }));
 
 // Mock usePdfDownload
@@ -65,7 +66,10 @@ jest.mock('@/components/dashboard/dashboard-native-view', () => ({
 
 // Mock useCommentStates
 jest.mock('@/hooks/api/useComments', () => ({
-  useCommentStates: () => ({ states: [], mutate: jest.fn() }),
+  useCommentStates: (): { states: CommentStates; mutate: jest.Mock } => ({
+    states: [],
+    mutate: jest.fn(),
+  }),
 }));
 
 // Mock CommentPopover
@@ -90,7 +94,7 @@ jest.mock('@/lib/rbac', () => {
 });
 
 // Mock ShareModal and ShareViaEmailDialog so we can check open/close without rendering internals
-jest.mock('@/components/ui/share-modal', () => ({
+jest.mock('@/components/share/ShareModal', () => ({
   ShareModal: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="share-modal" /> : null,
 }));

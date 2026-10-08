@@ -10,14 +10,13 @@ import {
 } from '@/constants/data-types';
 
 // Import chart type-specific customization components from modules
-import { BarChartCustomizations } from './types/bar/BarChartCustomizations';
-import { LineChartCustomizations } from './types/line/LineChartCustomizations';
-import { PieChartCustomizations } from './types/pie/PieChartCustomizations';
-import { NumberChartCustomizations } from './types/number/NumberChartCustomizations';
-import { MapChartCustomizations } from './types/map/MapChartCustomizations';
-import { TableChartCustomizations } from './types/table/TableChartCustomizations';
-import PivotTableCustomizations from '@/components/charts/pivot-table/PivotTableCustomizations';
-import { pruneStaleFormatting } from '@/components/charts/pivot-table/utils';
+import { BarChartCustomizations } from '@/components/charts/chart-types/echarts/BarChartCustomizations';
+import { LineChartCustomizations } from '@/components/charts/chart-types/echarts/LineChartCustomizations';
+import { PieChartCustomizations } from '@/components/charts/chart-types/echarts/PieChartCustomizations';
+import { NumberChartCustomizations } from '@/components/charts/chart-types/echarts/NumberChartCustomizations';
+import { TableChartCustomizations } from '@/components/charts/chart-types/table/TableChartCustomizations';
+import PivotTableCustomizations from '@/components/charts/chart-types/pivot-table/PivotTableCustomizations';
+import { pruneStaleFormatting } from '@/components/charts/chart-types/pivot-table/utils';
 
 interface ColumnInfo {
   column_name?: string;
@@ -355,15 +354,6 @@ export function ChartCustomizations({
     case ChartTypes.NUMBER:
       return (
         <NumberChartCustomizations
-          customizations={customizations}
-          updateCustomization={updateCustomization}
-          disabled={disabled}
-        />
-      );
-
-    case ChartTypes.MAP:
-      return (
-        <MapChartCustomizations
           customizations={customizations}
           updateCustomization={updateCustomization}
           disabled={disabled}
