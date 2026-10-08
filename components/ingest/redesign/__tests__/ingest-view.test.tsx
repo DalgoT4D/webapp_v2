@@ -158,7 +158,7 @@ describe('IngestView progressive reveal', () => {
     const chip = screen.getByTestId('warehouse-chip');
     // It navigates (anchor), not a dialog trigger.
     expect(chip.tagName).toBe('A');
-    expect(chip).toHaveAttribute('href', '/settings/warehouse');
+    expect(chip).toHaveAttribute('href', '/settings/data');
     expect(chip).toHaveTextContent('Warehouse');
     expect(screen.getByText('hobbit_pantry_1')).toBeInTheDocument();
     expect(screen.getByText('postgres')).toBeInTheDocument(); // uppercased via CSS

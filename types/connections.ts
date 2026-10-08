@@ -142,7 +142,6 @@ export interface SchemaChange {
   change_type: string; // e.g. 'breaking' | 'non_breaking'
   created_at?: string;
   updated_at?: string;
-  schedule_job?: number | null;
 }
 
 export interface CatalogDiff {

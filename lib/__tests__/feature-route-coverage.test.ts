@@ -30,8 +30,8 @@ describe('feature:viewed route coverage', () => {
     expect(unmapped).toEqual([]);
   });
 
-  it('maps the warehouse settings route specifically', () => {
-    expect(featureForPathname('/settings/warehouse')).toBe('settings_warehouse');
+  it('maps the data settings route specifically', () => {
+    expect(featureForPathname('/settings/data')).toBe('settings_data');
   });
 
   // Guards the matcher itself: a prefix must not swallow a sibling route.
