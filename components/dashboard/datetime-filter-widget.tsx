@@ -23,12 +23,8 @@ export function DateTimeFilterWidget({
   const [endOpen, setEndOpen] = useState(false);
 
   useEffect(() => {
-    if (value?.start_date) {
-      setStartDate(new Date(value.start_date + 'T00:00:00'));
-    }
-    if (value?.end_date) {
-      setEndDate(new Date(value.end_date + 'T00:00:00'));
-    }
+    setStartDate(value?.start_date ? new Date(value.start_date + 'T00:00:00') : undefined);
+    setEndDate(value?.end_date ? new Date(value.end_date + 'T00:00:00') : undefined);
   }, [value]);
 
   const handleDateChange = useCallback(

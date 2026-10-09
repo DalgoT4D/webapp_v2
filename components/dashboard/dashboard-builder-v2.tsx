@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  useMemo,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useCharts } from '@/hooks/api/useChart';
 import { useRouter } from 'next/navigation';
@@ -51,6 +59,7 @@ import {
   Target,
 } from 'lucide-react';
 // Removed toast import - using console for notifications
+import { toastInfo } from '@/lib/toast';
 // Charts, KPIs and text are rendered via DashboardCell
 import { FilterConfigModal } from './filter-config-modal';
 import { UnifiedFiltersPanel } from './unified-filters-panel';
@@ -75,6 +84,7 @@ import { initializeTabsData } from './tabs/tab-utils';
 import { moveWidgetBetweenTabs, pointerToGridPosition } from './tabs/cross-tab-drag';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS, DASHBOARD_UPDATE_SOURCES } from '@/constants/analytics';
+import { EMPTY_DEPENDENT_GROUP_FILTER_IDS } from '@/constants/dashboard-filters';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -520,6 +530,12 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
       ? initialData?.filters // Stable: don't switch sources while loading
       : liveDashboardData?.filters || initialData?.filters; // Live data once loaded
 
+    const dependentGroupFilterIds = isLoadingLiveDashboard
+      ? (initialData?.dependent_group_filter_ids ?? EMPTY_DEPENDENT_GROUP_FILTER_IDS)
+      : (liveDashboardData?.dependent_group_filter_ids ??
+        initialData?.dependent_group_filter_ids ??
+        EMPTY_DEPENDENT_GROUP_FILTER_IDS);
+
     // Load filters from backend with proper error handling
     const initialFilters = Array.isArray(dashboardFilters)
       ? dashboardFilters
@@ -615,6 +631,22 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
     const [selectedFilterForEdit, setSelectedFilterForEdit] = useState<DashboardFilter | null>(
       null
     );
+
+    // Names of the other dependent-group members for whichever filter is being edited --
+    // empty when not editing, or when the filter being edited isn't in a group.
+    const linkedFilterNames = useMemo(() => {
+      if (
+        !selectedFilterForEdit ||
+        !dependentGroupFilterIds.includes(Number(selectedFilterForEdit.id))
+      ) {
+        return [];
+      }
+      return initialFilters
+        .filter(
+          (f) => dependentGroupFilterIds.includes(Number(f.id)) && f.id !== selectedFilterForEdit.id
+        )
+        .map((f) => f.name || f.column_name);
+    }, [selectedFilterForEdit, dependentGroupFilterIds, initialFilters]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -1948,8 +1980,17 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
 
           // Refresh dashboard data to update filter list
           if (dashboardId) {
+            const wasInGroup = dependentGroupFilterIds.includes(filterId);
             const { mutate } = await import('swr');
-            mutate(`/api/dashboards/${dashboardId}/`);
+            const freshDashboard = await mutate(`/api/dashboards/${dashboardId}/`);
+            const stillInGroup = (freshDashboard?.dependent_group_filter_ids ?? []).includes(
+              filterId
+            );
+            if (wasInGroup && !stillInGroup) {
+              toastInfo.generic(
+                `"${updatedFilterFromAPI.name}" was removed from the dependent group because its type changed`
+              );
+            }
           }
         } catch (error) {
           console.error('Error updating filter:', error);
@@ -2748,6 +2789,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           <UnifiedFiltersPanel
             initialFilters={initialFilters}
             dashboardId={dashboardId!}
+            dependentGroupFilterIds={dependentGroupFilterIds}
             isEditMode={true}
             layout="horizontal"
             onAddFilter={() => setShowFilterModal(true)}
@@ -2785,6 +2827,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
             <UnifiedFiltersPanel
               initialFilters={initialFilters}
               dashboardId={dashboardId!}
+              dependentGroupFilterIds={dependentGroupFilterIds}
               isEditMode={true}
               layout="vertical"
               onAddFilter={() => setShowFilterModal(true)}
@@ -2936,6 +2979,7 @@ export const DashboardBuilderV2 = forwardRef<DashboardBuilderV2Ref, DashboardBui
           mode={selectedFilterForEdit ? 'edit' : 'create'}
           filterId={selectedFilterForEdit?.id ? Number(selectedFilterForEdit.id) : undefined}
           dashboardId={dashboardId}
+          linkedFilterNames={linkedFilterNames}
           initialData={
             selectedFilterForEdit
               ? {

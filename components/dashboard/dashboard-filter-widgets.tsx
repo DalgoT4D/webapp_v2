@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import type {
 } from '@/types/dashboard-filters';
 import { DashboardFilterType, NumericalFilterUIMode } from '@/types/dashboard-filters';
 import { DateTimeFilterWidget } from './datetime-filter-widget';
+import { buildFilterPreviewUrl } from '@/lib/dashboard-filter-utils';
 import useSWR from 'swr';
 import { apiGet } from '@/lib/api';
 
@@ -29,6 +30,9 @@ interface FilterWidgetProps {
   publicToken?: string;
   isReportMode?: boolean;
   isLocked?: boolean;
+  // JSON-encoded GroupNarrowingConstraint[] -- every other dependent-group member's
+  // current value, if this filter is in a group. Empty/undefined means unnarrowed.
+  groupNarrowingConstraintsJson?: string;
 }
 
 // Value Filter Widget (Dropdown/Multi-select)
@@ -41,6 +45,7 @@ function ValueFilterWidget({
   isPublicMode = false,
   publicToken,
   isReportMode = false,
+  groupNarrowingConstraintsJson,
 }: FilterWidgetProps) {
   const valueFilter = filter as ValueFilterConfig;
   const [selectedValues, setSelectedValues] = useState<string[]>(
@@ -55,15 +60,20 @@ function ValueFilterWidget({
     }
   }, [value, selectedValues, filter.id]);
 
-  // Build API URL based on public mode
-  const apiUrl =
-    filter.schema_name && filter.table_name && filter.column_name
-      ? isPublicMode && publicToken
-        ? isReportMode
-          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
-          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
-        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=value&limit=100`
-      : null;
+  // Narrowed means this filter is currently restricted by another dependent-group member's
+  // current value -- used below to gate the auto-drop effect.
+  const isNarrowed = !!(groupNarrowingConstraintsJson && groupNarrowingConstraintsJson !== '[]');
+
+  const apiUrl = buildFilterPreviewUrl({
+    schemaName: filter.schema_name,
+    tableName: filter.table_name,
+    columnName: filter.column_name,
+    filterType: 'value',
+    isPublicMode,
+    publicToken,
+    isReportMode,
+    constraintsJson: groupNarrowingConstraintsJson,
+  });
 
   // Custom fetcher for public mode with better error handling
   const fetcher = isPublicMode
@@ -108,7 +118,40 @@ function ValueFilterWidget({
   }
 
   // Use dynamically fetched options
-  const availableOptions = filterOptions?.options || [];
+  const availableOptions: FilterOption[] = useMemo(
+    () => filterOptions?.options || [],
+    [filterOptions]
+  );
+  const comboboxItems = useMemo(
+    () => availableOptions.map((opt) => ({ value: opt.value, label: opt.label })),
+    [availableOptions]
+  );
+
+  // Auto-drop: if this filter is currently narrowed by another dependent-group member,
+  // and its own selection no longer appears in the narrowed list, clear it. Runs the same
+  // way for every group member -- there's no designated "child" in the group model.
+  useEffect(() => {
+    if (!isNarrowed) return; // not narrowed right now -- nothing to drop
+    if (filterOptionsLoading || filterOptionsError) return;
+    if (selectedValues.length === 0) return;
+
+    const availableValues = new Set(availableOptions.map((opt: FilterOption) => opt.value));
+    const stillValid = selectedValues.filter((v) => availableValues.has(v));
+
+    if (stillValid.length !== selectedValues.length) {
+      const newValue =
+        stillValid.length === 0
+          ? null
+          : valueFilter.settings?.can_select_multiple
+            ? stillValid
+            : stillValid[0];
+      setSelectedValues(stillValid);
+      onChange(filter.id, newValue);
+    }
+    // Deliberately re-checks only when narrowing/options change, not on every selectedValues
+    // update (the effect itself is what changes selectedValues on a drop).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableOptions, filterOptionsLoading, filterOptionsError, isNarrowed]);
 
   const handleSelectionChange = (optionValue: string, isChecked: boolean) => {
     if (!optionValue) return; // Guard against invalid option values
@@ -147,7 +190,7 @@ function ValueFilterWidget({
       )}
     >
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col min-w-0 gap-0.5">
           <span
             className={cn(
               'font-medium truncate',
@@ -156,6 +199,16 @@ function ValueFilterWidget({
           >
             {filter.name || filter.column_name || 'Filter'}
           </span>
+          {/* Option count, visible without opening the dropdown (Superset-style) -- reuses
+              the options already fetched for the dropdown itself, so no extra query. For a
+              filter in a dependent group this reflects the current narrowed count once
+              another group member has a value, and the full unnarrowed count otherwise. */}
+          {!filterOptionsLoading && !filterOptionsError && (
+            <span className="text-xs text-muted-foreground">
+              {availableOptions.length} {availableOptions.length === 1 ? 'option' : 'options'}{' '}
+              available
+            </span>
+          )}
         </div>
         {selectedValues.length > 0 && (
           <Badge
@@ -172,12 +225,30 @@ function ValueFilterWidget({
             Loading options...
           </div>
         ) : filterOptionsError ? (
-          <div className="text-xs text-red-600 p-2 bg-red-50 rounded text-center">
-            <div>Options need attention</div>
-            <div className="text-xs text-red-500 mt-1">
-              {filterOptionsError.message || 'Please check your data connection'}
+          // "Broken" filter state (spec: dependent-filters) -- this filter's own column query
+          // failed, most likely because the column was renamed/removed in the warehouse since
+          // the filter was set up. Builders get an actionable prompt (edit to remap, or
+          // remove); viewers get the existing generic message since they can't act on it and
+          // any of their filters depending on this one already fell back to a full list.
+          isEditMode ? (
+            <div
+              className="text-xs text-orange-700 p-2 bg-orange-50 border border-orange-200 rounded text-center"
+              data-testid="filter-broken-notice"
+            >
+              <div className="font-medium">This filter needs attention</div>
+              <div className="text-orange-600 mt-1">
+                Its column may have been renamed or removed. Edit it to remap the column, or remove
+                it.
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-xs text-red-600 p-2 bg-red-50 rounded text-center">
+              <div>Options need attention</div>
+              <div className="text-xs text-red-500 mt-1">
+                {filterOptionsError.message || 'Please check your data connection'}
+              </div>
+            </div>
+          )
         ) : availableOptions.length === 0 ? (
           <div className="text-xs text-muted-foreground p-2 bg-gray-50 rounded text-center">
             No options available
@@ -185,10 +256,7 @@ function ValueFilterWidget({
         ) : valueFilter.settings?.can_select_multiple ? (
           <Combobox
             mode="multi"
-            items={availableOptions.map((opt: FilterOption) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
+            items={comboboxItems}
             values={selectedValues}
             onValuesChange={(newValues) => {
               setSelectedValues(newValues);
@@ -201,10 +269,7 @@ function ValueFilterWidget({
           />
         ) : (
           <Combobox
-            items={availableOptions.map((opt: FilterOption) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
+            items={comboboxItems}
             value={selectedValues[0] || ''}
             onValueChange={(val) => {
               const newSelection = val ? [val] : [];
@@ -244,15 +309,15 @@ function NumericalFilterWidget({
   // Default ui_mode to SLIDER if not specified
   const uiMode = numericalFilter.settings.ui_mode || NumericalFilterUIMode.SLIDER;
 
-  // Build API URL based on public mode for numerical stats
-  const numericalApiUrl =
-    filter.schema_name && filter.table_name && filter.column_name
-      ? isPublicMode && publicToken
-        ? isReportMode
-          ? `/api/v1/public/reports/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-          : `/api/v1/public/dashboards/${publicToken}/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-        : `/api/filters/preview/?schema_name=${encodeURIComponent(filter.schema_name)}&table_name=${encodeURIComponent(filter.table_name)}&column_name=${encodeURIComponent(filter.column_name)}&filter_type=numerical&limit=100`
-      : null;
+  const numericalApiUrl = buildFilterPreviewUrl({
+    schemaName: filter.schema_name,
+    tableName: filter.table_name,
+    columnName: filter.column_name,
+    filterType: 'numerical',
+    isPublicMode,
+    publicToken,
+    isReportMode,
+  });
 
   // Custom fetcher for numerical filter in public mode
   const numericalFetcher = isPublicMode

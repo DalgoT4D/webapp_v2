@@ -83,6 +83,9 @@ describe('DashboardFilterWidget - Single Select Mode', () => {
       expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
 
+    // Option count is visible without opening the dropdown
+    expect(screen.getByText('3 options available')).toBeInTheDocument();
+
     // Test selection change
     const combobox = screen.getByRole('combobox');
     await user.click(combobox);
@@ -157,6 +160,30 @@ describe('DashboardFilterWidget - Single Select Mode', () => {
       <DashboardFilterWidget filter={mockValueFilter} value={null} onChange={mockOnChange} />
     );
     expect(screen.getByText('No options available')).toBeInTheDocument();
+  });
+
+  it("shows a builder-facing 'broken filter' prompt in edit mode when its own query fails", () => {
+    mockedUseSWR.mockReturnValue({
+      data: null,
+      error: new Error('column "state" does not exist'),
+      isLoading: false,
+      mutate: jest.fn(),
+      isValidating: false,
+    } as any);
+
+    render(
+      <DashboardFilterWidget
+        filter={mockValueFilter}
+        value={null}
+        onChange={mockOnChange}
+        isEditMode={true}
+      />
+    );
+
+    expect(screen.getByTestId('filter-broken-notice')).toBeInTheDocument();
+    expect(screen.getByText('This filter needs attention')).toBeInTheDocument();
+    // Viewer-facing generic message must not leak into the edit-mode prompt.
+    expect(screen.queryByText('Options need attention')).not.toBeInTheDocument();
   });
 });
 
