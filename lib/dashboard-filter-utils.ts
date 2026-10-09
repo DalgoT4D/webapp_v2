@@ -8,6 +8,7 @@ import type {
   NumericalFilterSettings,
   DateTimeFilterSettings,
 } from '@/types/dashboard-filters';
+import { FILTER_OPTIONS_LIMIT } from '@/constants/dashboard-filters';
 
 // Appended to date-only strings so a "less_than_equal" comparison includes the full end day
 // e.g. "2025-03-19" + END_OF_DAY_TIME → "2025-03-19T23:59:59"
@@ -32,6 +33,69 @@ export interface DashboardFilterConfig {
   column_name: string;
   filter_type: 'value' | 'numerical' | 'datetime';
   settings?: any;
+}
+
+// The value side of a {column/operator, value} constraint: a list of selected options
+// for a categorical filter, or a single number/date-string for a numerical/datetime one.
+export type FilterConstraintValue = string[] | number | string;
+
+// A filter's raw current value, before it's turned into {operator, value} entries.
+export type FilterRawValue =
+  | string
+  | string[]
+  | number
+  | { min: number; max: number }
+  | { start_date?: string; end_date?: string };
+
+export interface OperatorValueEntry {
+  operator: string;
+  value: FilterConstraintValue;
+}
+
+/**
+ * Turns one filter's current value into one or more {operator, value} entries. A value
+ * filter -> one 'in' entry; a numerical/datetime range -> two entries (>=, <=); a single
+ * number/date -> one 'eq' entry. Shared by resolveDashboardFilters (chart querying) and
+ * the dependent-filters narrowing so both use the same range-to-operator rule.
+ */
+export function filterValueToOperatorEntries(
+  filterType: 'value' | 'numerical' | 'datetime',
+  value: FilterRawValue
+): OperatorValueEntry[] {
+  if (filterType === 'value') {
+    const v = value as string | string[];
+    return [{ operator: 'in', value: Array.isArray(v) ? v : [v] }];
+  }
+
+  if (filterType === 'numerical') {
+    if (typeof value === 'object' && value !== null && 'min' in value && 'max' in value) {
+      return [
+        { operator: 'greater_than_equal', value: value.min },
+        { operator: 'less_than_equal', value: value.max },
+      ];
+    }
+    return [{ operator: 'eq', value: value as number }];
+  }
+
+  if (filterType === 'datetime') {
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      ('start_date' in value || 'end_date' in value)
+    ) {
+      const entries: OperatorValueEntry[] = [];
+      if (value.start_date) {
+        entries.push({ operator: 'greater_than_equal', value: value.start_date });
+      }
+      if (value.end_date) {
+        entries.push({ operator: 'less_than_equal', value: value.end_date + END_OF_DAY_TIME });
+      }
+      return entries;
+    }
+    return [{ operator: 'eq', value: value as string }];
+  }
+
+  return [{ operator: 'eq', value: value as FilterConstraintValue }];
 }
 
 /**
@@ -63,82 +127,16 @@ export function resolveDashboardFilters(
       return;
     }
 
-    // Determine operator based on filter type and value
-    let operator = 'eq'; // Default operator
-
-    if (filterConfig.filter_type === 'value') {
-      // Always use 'in' operator and array format for consistency
-      // This ensures both single and multi-select work with the backend
-      operator = 'in';
-      if (!Array.isArray(value)) {
-        value = [value]; // Convert single value to array for consistent format
-      }
-    } else if (filterConfig.filter_type === 'numerical') {
-      if (typeof value === 'object' && value.min !== undefined && value.max !== undefined) {
-        // Range filter - we'll need to handle this differently
-        // For now, create two separate filters for min and max
-        resolvedFilters.push({
-          schema_name: filterConfig.schema_name,
-          table_name: filterConfig.table_name,
-          column_name: filterConfig.column_name,
-          operator: 'greater_than_equal',
-          value: value.min,
-          filter_type: filterConfig.filter_type,
-        });
-
-        resolvedFilters.push({
-          schema_name: filterConfig.schema_name,
-          table_name: filterConfig.table_name,
-          column_name: filterConfig.column_name,
-          operator: 'less_than_equal',
-          value: value.max,
-          filter_type: filterConfig.filter_type,
-        });
-        return;
-      } else {
-        operator = 'eq'; // Single numerical value
-      }
-    } else if (filterConfig.filter_type === 'datetime') {
-      // Date range filter — create separate filters matching backend operators
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        ('start_date' in value || 'end_date' in value)
-      ) {
-        if (value.start_date) {
-          resolvedFilters.push({
-            schema_name: filterConfig.schema_name,
-            table_name: filterConfig.table_name,
-            column_name: filterConfig.column_name,
-            operator: 'greater_than_equal',
-            value: value.start_date,
-            filter_type: filterConfig.filter_type,
-          });
-        }
-        if (value.end_date) {
-          resolvedFilters.push({
-            schema_name: filterConfig.schema_name,
-            table_name: filterConfig.table_name,
-            column_name: filterConfig.column_name,
-            operator: 'less_than_equal',
-            value: value.end_date + END_OF_DAY_TIME,
-            filter_type: filterConfig.filter_type,
-          });
-        }
-        return; // Already pushed, skip the generic push below
-      }
-      operator = 'eq'; // Single date value fallback
+    for (const entry of filterValueToOperatorEntries(filterConfig.filter_type, value)) {
+      resolvedFilters.push({
+        schema_name: filterConfig.schema_name,
+        table_name: filterConfig.table_name,
+        column_name: filterConfig.column_name,
+        operator: entry.operator,
+        value: entry.value,
+        filter_type: filterConfig.filter_type,
+      });
     }
-
-    // Add the resolved filter
-    resolvedFilters.push({
-      schema_name: filterConfig.schema_name,
-      table_name: filterConfig.table_name,
-      column_name: filterConfig.column_name,
-      operator,
-      value,
-      filter_type: filterConfig.filter_type,
-    });
   });
 
   return resolvedFilters;
@@ -217,7 +215,7 @@ export function getDefaultFilterValues(filters: DashboardFilterConfig[]): Record
  * separates the two. Empty strings, empty arrays and all-empty range objects are "unset":
  * a numerical filter the user never touched arrives as `{min: undefined, max: undefined}`.
  */
-function isFilterValueSet(value: unknown): boolean {
+export function isFilterValueSet(value: unknown): boolean {
   if (value === null || value === undefined || value === '') return false;
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === 'object') {
@@ -253,4 +251,92 @@ export function summarizeAppliedFilters(
     // Sorted so the same combination is one value in PostHog regardless of click order.
     filter_types: Array.from(types).sort(),
   };
+}
+
+export interface GroupNarrowingConstraint {
+  column: string;
+  operator: string;
+  value: FilterConstraintValue;
+}
+
+/**
+ * For one member of a dependent filter group, returns every *other* member's current
+ * value as narrowing constraints -- {column, operator, value} entries ready for the
+ * `constraints` query param. Self is excluded by construction; members without a value
+ * currently set are skipped.
+ */
+export function getGroupNarrowingInfo(
+  memberFilterId: string,
+  groupFilterIds: number[],
+  filters: DashboardFilterConfig[],
+  appliedValues: Record<string, FilterRawValue>
+): GroupNarrowingConstraint[] {
+  if (!groupFilterIds.includes(Number(memberFilterId))) return [];
+
+  const constraints: GroupNarrowingConstraint[] = [];
+
+  for (const filter of filters) {
+    if (String(filter.id) === String(memberFilterId)) continue;
+    if (!groupFilterIds.includes(Number(filter.id))) continue;
+
+    const value = appliedValues[filter.id];
+    if (!isFilterValueSet(value)) continue;
+
+    for (const entry of filterValueToOperatorEntries(filter.filter_type, value)) {
+      constraints.push({
+        column: filter.column_name,
+        operator: entry.operator,
+        value: entry.value,
+      });
+    }
+  }
+
+  return constraints;
+}
+
+export interface FilterPreviewUrlParams {
+  schemaName?: string;
+  tableName?: string;
+  columnName?: string;
+  filterType: 'value' | 'numerical' | 'datetime';
+  isPublicMode?: boolean;
+  publicToken?: string;
+  isReportMode?: boolean;
+  /** Already-JSON-encoded GroupNarrowingConstraint[] for dependent-group narrowing. */
+  constraintsJson?: string;
+}
+
+/** Authenticated, public-dashboard or public-report preview URL. Null = no column bound. */
+export function buildFilterPreviewUrl({
+  schemaName,
+  tableName,
+  columnName,
+  filterType,
+  isPublicMode = false,
+  publicToken,
+  isReportMode = false,
+  constraintsJson,
+}: FilterPreviewUrlParams): string | null {
+  if (!schemaName || !tableName || !columnName) return null;
+
+  const basePath =
+    isPublicMode && publicToken
+      ? isReportMode
+        ? `/api/v1/public/reports/${publicToken}/filters/preview/`
+        : `/api/v1/public/dashboards/${publicToken}/filters/preview/`
+      : '/api/filters/preview/';
+
+  const params = new URLSearchParams({
+    schema_name: schemaName,
+    table_name: tableName,
+    column_name: columnName,
+    filter_type: filterType,
+    limit: String(FILTER_OPTIONS_LIMIT),
+  });
+
+  if (constraintsJson && constraintsJson !== '[]') {
+    params.set('constraints', constraintsJson);
+  }
+
+  return `${basePath}?${params.toString()}`;
 }

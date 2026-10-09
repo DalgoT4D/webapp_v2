@@ -28,6 +28,7 @@ export interface Dashboard {
   created_at: string;
   updated_at: string;
   filters: DashboardFilter[];
+  dependent_group_filter_ids?: number[];
   // Sharing fields
   is_public: boolean;
   public_share_token?: string;
@@ -240,6 +241,13 @@ export async function deleteDashboardFilter(
   filterId: number
 ): Promise<{ success: boolean }> {
   return apiDelete(`/api/dashboards/${dashboardId}/filters/${filterId}/`);
+}
+
+export async function setDependentGroup(
+  dashboardId: number,
+  filterIds: number[]
+): Promise<{ dependent_group_filter_ids: number[] }> {
+  return apiPut(`/api/dashboards/${dashboardId}/dependent-group/`, { filter_ids: filterIds });
 }
 
 export async function duplicateDashboard(dashboardId: number): Promise<Dashboard> {

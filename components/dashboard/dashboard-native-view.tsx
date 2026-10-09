@@ -96,6 +96,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/constants/analytics';
+import { EMPTY_DEPENDENT_GROUP_FILTER_IDS } from '@/constants/dashboard-filters';
 import { getChartViewUrl, getKpiViewUrl, WIDGET_NAVIGATION_SOURCES } from '@/lib/widget-navigation';
 import {
   markDashboardShared,
@@ -464,6 +465,12 @@ export function DashboardNativeView({
       convertFilterToConfig(filter, { x: 0, y: 0, w: 4, h: 3 })
     );
   }, [dashboard?.filters]);
+
+  // Reads dependent_group_filter_ids straight from whatever `dashboard` holds here --
+  // the live dashboard API response, the public dashboard response, or a report
+  // snapshot's frozen config. All three now carry this field; absent means no group.
+  const dependentGroupFilterIds =
+    dashboard?.dependent_group_filter_ids ?? EMPTY_DEPENDENT_GROUP_FILTER_IDS;
 
   // Default filter values for report mode are computed synchronously in useState above.
   // No useEffect needed — this avoids a double-render cycle with empty filters.
@@ -1336,6 +1343,7 @@ export function DashboardNativeView({
         <ResponsiveFiltersSection
           dashboardFilters={dashboardFilters}
           dashboardId={dashboardId}
+          dependentGroupFilterIds={dependentGroupFilterIds}
           isEditMode={false}
           onFiltersApplied={handleFiltersApplied}
           onFiltersCleared={handleFiltersCleared}
@@ -1353,6 +1361,7 @@ export function DashboardNativeView({
           <UnifiedFiltersPanel
             initialFilters={dashboardFilters}
             dashboardId={dashboardId}
+            dependentGroupFilterIds={dependentGroupFilterIds}
             isEditMode={false}
             layout="vertical"
             onFiltersApplied={handleFiltersApplied}

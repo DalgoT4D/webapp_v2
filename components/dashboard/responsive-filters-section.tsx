@@ -16,6 +16,7 @@ import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-fi
 interface ResponsiveFiltersSectionProps {
   dashboardFilters: DashboardFilterConfig[];
   dashboardId: number;
+  dependentGroupFilterIds?: number[];
   isEditMode?: boolean;
   onFiltersApplied?: (filters: AppliedFilters) => void;
   onFiltersCleared?: () => void;
@@ -29,6 +30,7 @@ interface ResponsiveFiltersSectionProps {
 export function ResponsiveFiltersSection({
   dashboardFilters,
   dashboardId,
+  dependentGroupFilterIds,
   isEditMode = false,
   onFiltersApplied,
   onFiltersCleared,
@@ -72,6 +74,7 @@ export function ResponsiveFiltersSection({
               <UnifiedFiltersPanel
                 initialFilters={dashboardFilters}
                 dashboardId={dashboardId}
+                dependentGroupFilterIds={dependentGroupFilterIds}
                 isEditMode={isEditMode}
                 layout="horizontal" // Always use horizontal in collapsed mode for better mobile experience
                 onFiltersApplied={onFiltersApplied}
