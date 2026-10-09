@@ -1,3 +1,8 @@
+> **This repository is now a read-only archive.**
+> Dalgo has moved to a monorepo at **[DalgoT4D/dalgo](https://github.com/DalgoT4D/dalgo)**. All active development, issues, and contributions should go there.
+
+---
+
 # Dalgo Web Application
 
 A modern web application built with Next.js 15 and React 19, featuring a comprehensive dashboard system with data visualization, analytics, and reporting capabilities.
