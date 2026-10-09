@@ -107,6 +107,7 @@ export const PERMISSIONS = {
   CAN_VIEW_FLAGS: 'can_view_flags',
   CAN_EDIT_LLM_SETTINGS: 'can_edit_llm_settings',
   CAN_EDIT_ORG_NOTIFICATION_SETTINGS: 'can_edit_org_notification_settings',
+  CAN_EDIT_SCHEMA_CHANGE_SETTINGS: 'can_edit_schema_change_settings',
   CAN_INITIATE_ORG_PLAN_UPGRADE: 'can_initiate_org_plan_upgrade',
   CAN_REQUEST_LLM_ANALYSIS_FEATURE: 'can_request_llm_analysis_feature',
   CAN_USE_CHAT_WITH_DATA: 'can_use_chat_with_data',
