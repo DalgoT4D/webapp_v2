@@ -28,6 +28,7 @@ import { TableChart } from '@/components/charts/TableChart';
 import { MapPreview } from '@/components/charts/map/MapPreview';
 import type { ChartTitleConfig } from '@/lib/chart-title-utils';
 import { mergeTableColumnFormatting, resolveTableColumnOrder } from '@/lib/chart-payload-utils';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 import {
   resolveDashboardFilters,
   formatAsChartFilters,
@@ -130,7 +131,7 @@ export function ChartElementV2({
 
   // Table pagination state
   const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(20);
+  const [tablePageSize, setTablePageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
 
   // ✅ ADD: Drill-down state management for table charts
   const [tableDrillDownState, setTableDrillDownState] = useState<{
@@ -166,6 +167,12 @@ export function ChartElementV2({
     isError: chartError,
     error: chartFetchError,
   } = useChart(chartId);
+
+  // Sync tablePageSize from the saved config — it starts at a hardcoded default otherwise.
+  useEffect(() => {
+    setTablePageSize(chart?.extra_config?.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE);
+    setTablePage(1); // Reset to first page when the saved page size changes
+  }, [chart?.extra_config?.pagination?.page_size]);
 
   // Handle table row click for drill-down (defined after chart is fetched)
   const handleTableRowClick = useCallback(

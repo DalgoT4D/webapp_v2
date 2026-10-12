@@ -374,11 +374,20 @@ describe('ChartDataConfigurationV3', () => {
 
   describe('Configuration Sections', () => {
     it('should show/hide sections based on chart type', () => {
+      // Pagination is table-chart only; bar/line/pie still get Sort Configuration.
       const { rerender } = render(
         <ChartDataConfigurationV3 formData={baseFormData} onChange={mockOnChange} />
       );
-      expect(screen.getByText('Pagination')).toBeInTheDocument();
+      expect(screen.queryByText('Pagination')).not.toBeInTheDocument();
       expect(screen.getByText('Sort Configuration')).toBeInTheDocument();
+
+      rerender(
+        <ChartDataConfigurationV3
+          formData={{ ...baseFormData, chart_type: 'table' }}
+          onChange={mockOnChange}
+        />
+      );
+      expect(screen.getByText('Pagination')).toBeInTheDocument();
 
       rerender(
         <ChartDataConfigurationV3

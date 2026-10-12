@@ -1,3 +1,6 @@
+// Default rows-per-page for table/pivot-table charts when a chart has no saved page_size.
+export const DEFAULT_TABLE_PAGE_SIZE = 20;
+
 export const CHART_TYPE_COLORS = {
   bar: {
     color: '#3B82F6',

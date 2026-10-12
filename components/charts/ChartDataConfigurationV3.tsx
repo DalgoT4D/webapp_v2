@@ -38,6 +38,7 @@ import type {
   ChartFilter,
 } from '@/types/charts';
 import { generateAutoPrefilledConfig } from '@/lib/chartAutoPrefill';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@/constants/chart-types';
 
 interface ChartDataConfigurationV3Props {
   formData: ChartBuilderFormData;
@@ -282,7 +283,11 @@ export function ChartDataConfigurationV3({
       metrics: [],
       filters: [],
       sort: [],
-      pagination: { enabled: false, page_size: 50 },
+      // Table charts paginate by default; other chart types keep the same page size, just disabled.
+      pagination: {
+        enabled: formData.chart_type === 'table',
+        page_size: DEFAULT_TABLE_PAGE_SIZE,
+      },
       computation_type: 'aggregated',
       // Reset map-specific fields
       layers: undefined,
@@ -371,6 +376,14 @@ export function ChartDataConfigurationV3({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.chart_type, formData.dimension_column, allColumns, columns]);
+
+  // Commit the default page size into formData, not just the selector's display.
+  React.useEffect(() => {
+    if (formData.chart_type === 'table' && !formData.pagination?.page_size) {
+      onChange({ pagination: { enabled: true, page_size: DEFAULT_TABLE_PAGE_SIZE } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.chart_type, formData.pagination?.page_size]);
 
   // Handle chart type changes with field cleanup and auto-prefill
   const handleChartTypeChange = (newChartType: string) => {
@@ -889,45 +902,35 @@ export function ChartDataConfigurationV3({
         />
       )}
 
-      {/* Pagination Section — not applicable to map, number, or pivot table charts */}
-      {formData.chart_type !== 'map' &&
-        formData.chart_type !== 'number' &&
-        formData.chart_type !== 'pivot_table' && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Pagination</Label>
-            <Select
-              value={
-                formData.pagination?.enabled
-                  ? (formData.pagination?.page_size || 50).toString()
-                  : '__none__'
-              }
-              onValueChange={(value) => {
-                if (value === '__none__') {
-                  onChange({ pagination: { enabled: false, page_size: 50 } });
-                } else {
-                  onChange({
-                    pagination: {
-                      enabled: true,
-                      page_size: parseInt(value),
-                    },
-                  });
-                }
-              }}
-              disabled={disabled}
-            >
-              <SelectTrigger className="h-8 w-full">
-                <SelectValue placeholder="Select pagination" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No pagination</SelectItem>
-                <SelectItem value="20">20 items</SelectItem>
-                <SelectItem value="50">50 items</SelectItem>
-                <SelectItem value="100">100 items</SelectItem>
-                <SelectItem value="200">200 items</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {/* Pagination Section — table charts only (always enabled, just a page-size pick) */}
+      {formData.chart_type === 'table' && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-900">Pagination</Label>
+          <Select
+            value={(formData.pagination?.page_size ?? DEFAULT_TABLE_PAGE_SIZE).toString()}
+            onValueChange={(value) => {
+              onChange({
+                pagination: {
+                  enabled: true,
+                  page_size: parseInt(value),
+                },
+              });
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue placeholder="Select pagination" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 items</SelectItem>
+              <SelectItem value="20">20 items</SelectItem>
+              <SelectItem value="50">50 items</SelectItem>
+              <SelectItem value="100">100 items</SelectItem>
+              <SelectItem value="200">200 items</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Sort Section — not shown for pivot tables (v1 has no pivot sort) */}
       {formData.chart_type !== 'map' &&
