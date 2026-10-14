@@ -379,7 +379,7 @@ export const ANALYTICS_EVENTS = {
   // Notifications
   NOTIFICATION_PREFERENCES_UPDATED: 'notification:preferences_updated',
   NOTIFICATIONS_ALL_READ: 'notification:all_marked_read',
-  // Admin portal — a separate, higher-privilege surface with its own session,
+  // Admin portal — a higher-privilege surface gated on is_platform_admin,
   // so its sign-in is tracked apart from auth:user_logged_in.
   ADMIN_LOGGED_IN: 'admin:admin_logged_in',
   ADMIN_LOGIN_FAILED: 'admin:admin_login_failed',
