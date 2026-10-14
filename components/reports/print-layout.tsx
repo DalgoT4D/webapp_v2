@@ -9,6 +9,9 @@ import type { FrozenChartConfig } from '@/types/reports';
 
 const ROW_HEIGHT_PX = 20;
 const MIN_CHART_HEIGHT_PX = 300;
+// Without a floor, a short text/image widget (small `h`) can compute to a
+// near-zero height, letting its content overflow rather than render at all.
+const MIN_TEXT_HEIGHT_PX = 60;
 
 interface PrintLayoutProps {
   dashboardData: Dashboard;
@@ -98,12 +101,14 @@ export function PrintLayout({
         );
       }
 
-      case 'text':
+      case 'text': {
+        const height = Math.max(layoutItem.h * ROW_HEIGHT_PX, MIN_TEXT_HEIGHT_PX);
         return (
-          <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0 }}>
+          <div key={layoutItem.i} style={{ flex: layoutItem.w, minWidth: 0, height }}>
             <UnifiedTextElement config={component.config} onUpdate={() => {}} isEditMode={false} />
           </div>
         );
+      }
 
       case 'heading': {
         const level = component.config?.level || 2;

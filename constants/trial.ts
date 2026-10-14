@@ -118,8 +118,10 @@ export const BOOK_A_CALL_URL = 'https://calendly.com/priyesh-projecttech4dev/30m
 export const DALGO_DOCS_URL = 'https://docs.dalgo.org/intro';
 
 // The Dalgo product overview, shown on the provisioning screen and in the getting-started
-// widget. One constant so swapping the video is a single edit rather than one per surface.
-export const PRODUCT_VIDEO_ID = 'R-JJNgp8xYM';
+// widget. Keeping both assets here makes swapping the video a single edit rather than one per
+// surface, while self-hosting avoids a third-party loading/interstitial state.
+export const PRODUCT_VIDEO_SRC = '/branding/dalgo-product-overview.mp4';
+export const PRODUCT_VIDEO_POSTER_SRC = '/branding/dalgo-product-overview-poster.jpg';
 
 // Status polling cadence for the progress screen (ms). Kept above the SWRProvider's
 // dedupingInterval (2000ms in lib/swr.tsx). The hook also sets refreshWhenHidden so

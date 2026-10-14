@@ -20,6 +20,9 @@ interface FilterElementProps {
   isPublicMode?: boolean;
   publicToken?: string;
   isReportMode?: boolean;
+  // JSON-encoded GroupNarrowingConstraint[] -- every other dependent-group member's
+  // current value, if this filter is in a group. Passed straight through to the widget.
+  groupNarrowingConstraintsJson?: string;
 }
 
 export function FilterElement({
@@ -36,6 +39,7 @@ export function FilterElement({
   isPublicMode = false,
   publicToken,
   isReportMode = false,
+  groupNarrowingConstraintsJson,
 }: FilterElementProps) {
   // Check if filter is locked (e.g., date filter in report mode)
   const isLocked = !!(filter?.settings as any)?.locked;
@@ -150,6 +154,7 @@ export function FilterElement({
         publicToken={publicToken}
         isReportMode={isReportMode}
         isLocked={isLocked}
+        groupNarrowingConstraintsJson={groupNarrowingConstraintsJson}
       />
     </div>
   );

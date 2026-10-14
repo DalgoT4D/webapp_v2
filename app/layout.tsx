@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Anek_Latin } from 'next/font/google';
+import { Anek_Latin, Roboto_Mono } from 'next/font/google';
 import './globals.css';
 import { SWRProvider } from '@/lib/swr';
 import { ClientLayout } from '@/components/client-layout';
@@ -17,6 +17,13 @@ const anekMono = Anek_Latin({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
+});
+
+const robotoMono = Roboto_Mono({
+  variable: '--font-roboto-mono',
+  subsets: ['latin'],
+  weight: ['400'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -39,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${anekLatin.variable} ${anekMono.variable} antialiased font-sans`}
+        className={`${anekLatin.variable} ${anekMono.variable} ${robotoMono.variable} antialiased font-sans`}
         suppressHydrationWarning={true}
       >
         <PostHogProvider>

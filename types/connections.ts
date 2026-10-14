@@ -88,6 +88,7 @@ export interface StreamColumn {
   data_type: string;
   selected: boolean;
   cast_to_type: string | null;
+  type_confirmed: boolean;
 }
 
 // ============ Sync Catalog Types ============
@@ -141,7 +142,6 @@ export interface SchemaChange {
   change_type: string; // e.g. 'breaking' | 'non_breaking'
   created_at?: string;
   updated_at?: string;
-  schedule_job?: number | null;
 }
 
 export interface CatalogDiff {

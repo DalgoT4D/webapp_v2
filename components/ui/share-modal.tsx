@@ -523,11 +523,9 @@ export function ShareModal({
       const res = await updateGeneralAccess(rtype, entityId, next);
       if (next === 'public' && res.public_url) {
         toastSuccess.generic(`${entityLabel} is now public`);
-        await copyUrlToClipboard(res.public_url);
-        // Deliberately NOT onCopyLink, even though the link did reach the clipboard: callers
-        // treat that as the share act itself and end the onboarding walkthrough on it, which
-        // here would skip the "copy the link" step the user hasn't reached yet. Only the
-        // explicit COPY PUBLIC LINK button counts.
+        // Keep copying attached to the explicit COPY PUBLIC LINK click. Waiting for this API
+        // response can consume the browser's transient user activation and make an automatic
+        // clipboard write fail even though the resource was successfully made public.
         onMadePublic?.();
       } else if (next === 'internal') {
         toastSuccess.generic(`${entityLabel} is now visible to everyone in your org`);
@@ -545,7 +543,7 @@ export function ShareModal({
 
   const handleCopyPublicUrl = useCallback(async () => {
     if (!generalAccess?.public_url) return;
-    // See handleModeChange: only a successful clipboard write counts as a share.
+    // Only a successful explicit clipboard write counts as a share.
     if (await copyUrlToClipboard(generalAccess.public_url)) onCopyLink?.();
   }, [generalAccess?.public_url, onCopyLink]);
 

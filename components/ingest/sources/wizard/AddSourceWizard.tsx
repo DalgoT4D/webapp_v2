@@ -139,7 +139,9 @@ export function AddSourceWizard({
     },
     select: {
       title: 'Choose your data source',
-      description: 'Pick a popular source below, or search the full catalog.',
+      // The visible copy sits directly above the picker search field. Keep this
+      // associated description screen-reader-only so Radix still announces it.
+      description: 'Search across 600+ connectors, or choose a popular source below.',
     },
     configure: {
       title: `Configure ${def?.name ?? 'source'}`,
@@ -164,6 +166,10 @@ export function AddSourceWizard({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleDismiss()}>
       <DialogContent
+        // Read by the walkthrough's exit guard (see WALKTHROUGH_PROTECTED_DIALOGS in
+        // insight-walkthrough-coachmark.tsx): the configure and connection steps carry no
+        // coachmark, so this is what tells the guard the user is still inside the flow.
+        data-testid="add-source-wizard"
         className={cn(
           'max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden',
           // The picker is a compact, near-square card grid; the configure step
@@ -171,7 +177,7 @@ export function AddSourceWizard({
           // streams table alongside the help panel.
           'transition-[max-width,width] duration-300 ease-out',
           step === 'select'
-            ? 'sm:max-w-xl'
+            ? 'sm:max-w-3xl'
             : step === 'connection'
               ? connectionExpanded
                 ? '!max-w-[1600px] !w-[96vw] max-h-[85vh]'
@@ -209,7 +215,9 @@ export function AddSourceWizard({
             )}
             {header.title}
           </DialogTitle>
-          <DialogDescription className="text-base">{header.description}</DialogDescription>
+          <DialogDescription className={step === 'select' ? 'sr-only' : 'text-base'}>
+            {header.description}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 min-h-0 flex-col">

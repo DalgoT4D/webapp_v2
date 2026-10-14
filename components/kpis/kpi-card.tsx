@@ -22,6 +22,7 @@ import type { KPICustomizations } from '@/types/kpis';
 import { OverflowTooltip } from '@/components/ui/overflow-tooltip';
 import type { RAGStatus } from '@/types/kpis';
 import { formatDistanceToNow, format as formatDate, parseISO, isValid } from 'date-fns';
+import { targetGapLabel } from '@/lib/kpi-rag';
 
 function EChartsRenderer({
   config,
@@ -115,6 +116,7 @@ interface KPICardProps {
   subtitle?: string;
   data: KPICardData;
   headerActions?: React.ReactNode;
+  toolbarActions?: React.ReactNode;
   menuItems?: React.ReactNode;
   onClick?: () => void;
   className?: string;
@@ -124,7 +126,11 @@ interface KPICardProps {
   downloadInMenu?: boolean;
   /** When true, shows a fullscreen toggle button (used on dashboards) */
   showFullscreen?: boolean;
-  /** Analytics only — the KPI behind this card, so exports can be joined to it. */
+  /**
+   * The KPI behind this card. Joins exports to it in analytics, and identifies the card in the
+   * DOM (`data-testid="kpi-card-<id>"`) — the onboarding walkthrough highlights the card of the
+   * KPI the user just made, which it can only find by id.
+   */
   kpiId?: number;
   /** Analytics only — which surface this card is rendered on (KPI_EXPORT_SOURCES). */
   exportSource?: KpiExportSource;
@@ -135,6 +141,7 @@ export function KPICard({
   subtitle,
   data,
   headerActions,
+  toolbarActions,
   menuItems,
   onClick,
   className,
@@ -167,6 +174,7 @@ export function KPICard({
   }, [toggleFullscreen]);
 
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
+  const targetGap = ragStatus === 'amber' ? targetGapLabel(currentValue, targetValue) : null;
 
   const handleDownloadPNG = useCallback(async () => {
     if (!cardRef.current) return;
@@ -229,13 +237,15 @@ export function KPICard({
   return (
     <div
       ref={cardRef}
+      data-testid={kpiId === undefined ? undefined : `kpi-card-${kpiId}`}
       className={`bg-white flex flex-col relative group ${borderless ? '' : 'border rounded-lg hover:shadow-md transition-shadow'} ${isFullscreen ? '!h-screen !w-screen p-4' : ''} ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
       onClick={onClick}
     >
-      {/* Hover toolbar (download + fullscreen) */}
-      {((showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
-        <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      {/* Navigation, download and fullscreen actions, including keyboard/touch access. */}
+      {(toolbarActions || (showDownload && !downloadInMenu && !isLoading) || showFullscreen) && (
+        <div className="absolute top-2 right-2 z-10 opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
           <div className="flex gap-1 bg-white/90 backdrop-blur rounded-md shadow-sm p-1">
+            {toolbarActions}
             {showDownload && !downloadInMenu && !isLoading && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -284,6 +294,11 @@ export function KPICard({
             <Badge variant="outline" className={`${ragInfo.bg} ${ragInfo.text} border-0 text-xs`}>
               <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
               {ragInfo.label}
+              {targetGap && (
+                <span data-testid="kpi-target-gap" className="ml-1">
+                  · {targetGap}
+                </span>
+              )}
             </Badge>
           )}
           {downloadInMenu ? (

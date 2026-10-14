@@ -45,6 +45,7 @@ import { AlertWizardModal } from '@/components/alerts/AlertWizardModal';
 import { RequestEditPill } from '@/components/access/request-edit-pill';
 import { ShareModal } from '@/components/ui/share-modal';
 import { PERMISSIONS, useRbac } from '@/lib/rbac';
+import { targetGapLabel } from '@/lib/kpi-rag';
 
 const grainLabel: Record<string, string> = {
   daily: 'day',
@@ -175,6 +176,7 @@ export function KPIDetailDrawer({
   const ragStatus = chartData?.rag_status as RAGStatus | null;
   const ragInfo = ragStatus ? RAG_COLORS[ragStatus] : null;
   const currentValue = chartData?.current_value;
+  const targetGap = ragStatus === 'amber' ? targetGapLabel(currentValue, kpi.target_value) : null;
   const periods = chartData?.periods || [];
 
   const lastTwo = periods.slice(-2).map((p) => p.value);
@@ -256,10 +258,17 @@ export function KPIDetailDrawer({
                   <Pencil className="w-4 h-4" />
                 </Button>
               )}
+              {/* aria-label is load-bearing beyond a11y: SheetContent's built-in close is
+                  hidden here, so this is the drawer's only exit, and the walkthrough's exit
+                  guard identifies exit controls by their label (see DIALOG_EXIT_LABELS in
+                  walkthrough-exit-guard.ts). Unlabelled, closing the drawer mid-coachmark
+                  slipped past the "leave the walkthrough?" prompt. */}
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
+                aria-label="Close"
+                data-testid="kpi-detail-close-btn"
                 onClick={() => onOpenChange(false)}
               >
                 <X className="w-4 h-4" />
@@ -303,7 +312,10 @@ export function KPIDetailDrawer({
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
+              {/* The two period controls travel together — the date range says how far back to
+                  look, the time grain how finely to slice it — so the onboarding walkthrough
+                  coaches the pair rather than either one alone. */}
+              <div data-testid="kpi-detail-period-controls" className="flex items-center gap-2">
                 <DurationPicker
                   dateFrom={dateFrom}
                   dateTo={dateTo}
@@ -323,7 +335,10 @@ export function KPIDetailDrawer({
                   }
                 />
                 <Select value={activeTimeGrain} onValueChange={setTimeGrain}>
-                  <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectTrigger
+                    data-testid="kpi-detail-time-grain-select"
+                    className="w-28 h-8 text-xs"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -342,6 +357,11 @@ export function KPIDetailDrawer({
                 >
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${ragInfo.dot}`} />
                   {ragInfo.label}
+                  {targetGap && (
+                    <span data-testid="kpi-target-gap" className="ml-1">
+                      · {targetGap}
+                    </span>
+                  )}
                 </Badge>
               )}
             </div>
@@ -522,6 +542,7 @@ function NotesSection({
         {!showForm && canEditKpis && (
           <Button
             size="sm"
+            data-testid="kpi-detail-add-note-btn"
             className="text-white"
             style={{ backgroundColor: 'var(--primary)' }}
             onClick={() => setShowForm(true)}

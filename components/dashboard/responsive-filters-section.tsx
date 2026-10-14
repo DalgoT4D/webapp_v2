@@ -16,6 +16,7 @@ import type { AppliedFilters, DashboardFilterConfig } from '@/types/dashboard-fi
 interface ResponsiveFiltersSectionProps {
   dashboardFilters: DashboardFilterConfig[];
   dashboardId: number;
+  dependentGroupFilterIds?: number[];
   isEditMode?: boolean;
   onFiltersApplied?: (filters: AppliedFilters) => void;
   onFiltersCleared?: () => void;
@@ -29,6 +30,7 @@ interface ResponsiveFiltersSectionProps {
 export function ResponsiveFiltersSection({
   dashboardFilters,
   dashboardId,
+  dependentGroupFilterIds,
   isEditMode = false,
   onFiltersApplied,
   onFiltersCleared,
@@ -52,7 +54,8 @@ export function ResponsiveFiltersSection({
 
   // Mobile/Tablet: Use accordion-style filters
   return (
-    <div className={className}>
+    // testid read by the walkthrough's exit guard — see the note in unified-filters-panel.tsx.
+    <div className={className} data-testid="dashboard-filters-section">
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="filters" className="border-b-0">
           <AccordionTrigger className="hover:no-underline py-3 px-4 bg-muted/20 rounded-lg">
@@ -71,6 +74,7 @@ export function ResponsiveFiltersSection({
               <UnifiedFiltersPanel
                 initialFilters={dashboardFilters}
                 dashboardId={dashboardId}
+                dependentGroupFilterIds={dependentGroupFilterIds}
                 isEditMode={isEditMode}
                 layout="horizontal" // Always use horizontal in collapsed mode for better mobile experience
                 onFiltersApplied={onFiltersApplied}

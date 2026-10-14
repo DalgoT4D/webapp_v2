@@ -6,7 +6,6 @@ import { ConnectorConfigForm } from '@/components/connectors/ConnectorConfigForm
 import type { ParsedSpec } from '@/components/connectors/types';
 import type { CustomSource } from '@/components/ingest/sources/custom/registry';
 import type { CustomSourceOAuth } from '@/components/ingest/sources/custom/types';
-import type { SourceAuthMode } from '@/constants/analytics';
 
 interface SourceConfigFieldsProps {
   parsedSpec: ParsedSpec | null;
@@ -20,8 +19,6 @@ interface SourceConfigFieldsProps {
   oauth?: CustomSourceOAuth;
   /** Google-only. See `CustomSourceFormProps.onAuthSatisfiedChange`. */
   onAuthSatisfiedChange?: (satisfied: boolean) => void;
-  /** Google-only, analytics. See `CustomSourceFormProps.onAuthModeChange`. */
-  onAuthModeChange?: (mode: SourceAuthMode) => void;
   /** Host-owned source-name field, rendered at the top of the custom form's left
    *  column so it lines up with the other fields (not full-width above the grid). */
   nameField?: ReactNode;
@@ -51,7 +48,6 @@ export function SourceConfigFields({
   mode,
   oauth,
   onAuthSatisfiedChange,
-  onAuthModeChange,
   nameField,
   setupLogs,
   logsTestId,
@@ -71,7 +67,6 @@ export function SourceConfigFields({
             mode={mode}
             oauth={oauth}
             onAuthSatisfiedChange={onAuthSatisfiedChange}
-            onAuthModeChange={onAuthModeChange}
           />
         </div>
       ) : parsedSpec ? (

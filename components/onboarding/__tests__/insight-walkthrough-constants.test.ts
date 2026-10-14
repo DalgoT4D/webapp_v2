@@ -2,6 +2,10 @@ import {
   WALKTHROUGH_STAGE_ORDER,
   OWN_DATA_WALKTHROUGH_STAGE_ORDER,
   AUTOMATE_PIPELINE_STAGE_ORDER,
+  INGEST_STAGES,
+  CONNECTION_WATCH_STAGES,
+  OWN_DATA_WIZARD_STAGES,
+  PIPELINE_WIZARD_STAGES,
   POST_SYNC_STAGE_FOR,
   CHART_ENTRY_STAGE,
   getStoredWalkthroughStage,
@@ -27,6 +31,8 @@ import {
   getResumeAnchorStage,
   flowForPath,
   SOURCE_NEXT_STAGE_FOR,
+  SHEET_PICKED_STAGE_FOR,
+  WIZARD_CONFIG_ENTRY_STAGE_FOR,
 } from '../insight-walkthrough-constants';
 import {
   setWalkthroughScope,
@@ -65,6 +71,14 @@ describe('insight-walkthrough-constants', () => {
       clearWalkthroughState('insights');
       expect(getStoredWalkthroughStage('insights')).toBeNull();
       expect(hasFinishedWalkthrough('insights')).toBe(true);
+    });
+
+    it('carries a retired stage id forward instead of resuming into nothing', () => {
+      // The reported break: a run left on 'kpi_view_card' (since removed) resumed into a stage
+      // with no coachmark, and the "successful" resume stopped the widget offering the fork.
+      saveWalkthroughStage('insights', 'kpi_view_card' as never);
+
+      expect(getStoredWalkthroughStage('insights')).toBe('dashboard_nudge');
     });
 
     it('writes nothing at all when there is no selected org yet', () => {
@@ -210,6 +224,26 @@ describe('insight-walkthrough-constants', () => {
       expect(WALKTHROUGH_STAGE_ORDER[0]).toBe('fork2');
       // Copying the public link is the final action — see dashboard-native-view.tsx.
       expect(WALKTHROUGH_STAGE_ORDER[WALKTHROUGH_STAGE_ORDER.length - 1]).toBe('share_copy_link');
+    });
+
+    it('sends the sample fork to look at the new KPI before nudging it to dashboards', () => {
+      // The handover used to go straight from Create KPI to "build a dashboard", skipping the
+      // thing the user had just made.
+      const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_submit');
+      expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+        'kpi_submit',
+        // Straight into the drawer — the celebration dialog's "View KPI" opens it, so there is
+        // no step ringing the new card in between.
+        'kpi_duration',
+        'kpi_add_note',
+        // Closing the drawer is a coached step of its own — the nudge after it rings a nav
+        // item the drawer covers.
+        'kpi_close_drawer',
+        'dashboard_nudge',
+      ]);
+      // Only the sample fork builds a KPI — the other two open on ingest.
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER).not.toContain('kpi_duration');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER).not.toContain('kpi_duration');
     });
 
     it('runs the pipeline fork from the Ingest nudge to the created pipeline, and stops there', () => {
@@ -358,6 +392,48 @@ describe('insight-walkthrough-constants', () => {
     });
   });
 
+  describe('the add-source wizard stages', () => {
+    it('runs the wizard between the picker\u2019s Next and whatever the fork does after ingest', () => {
+      const from = OWN_DATA_WALKTHROUGH_STAGE_ORDER.indexOf('own_data_source_next');
+      expect(OWN_DATA_WALKTHROUGH_STAGE_ORDER.slice(from + 1, from + 7)).toEqual(
+        OWN_DATA_WIZARD_STAGES
+      );
+      const pipelineFrom = AUTOMATE_PIPELINE_STAGE_ORDER.indexOf('pipeline_source_next');
+      expect(AUTOMATE_PIPELINE_STAGE_ORDER.slice(pipelineFrom + 1, pipelineFrom + 7)).toEqual(
+        PIPELINE_WIZARD_STAGES
+      );
+    });
+
+    it('counts every wizard step as an ingest stage, so the new connection is watched', () => {
+      // CONNECTION_WATCH_STAGES is built from INGEST_STAGES, and the connection is CREATED on
+      // the last wizard stage. Leave them out and the walkthrough never follows that
+      // connection to its first sync — it parks on "connect your data" with data already in.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(INGEST_STAGES).toContain(stage);
+        expect(CONNECTION_WATCH_STAGES).toContain(stage);
+      }
+    });
+
+    it('treats every wizard step as coached inside the dialog', () => {
+      // ingest-view.tsx suppresses coachmarks while the wizard is open unless the stage says
+      // it lives in there. Without this the new coachmarks would be hidden by the very dialog
+      // they point into.
+      for (const stage of [...OWN_DATA_WIZARD_STAGES, ...PIPELINE_WIZARD_STAGES]) {
+        expect(isWizardCoachedStage(stage)).toBe(true);
+      }
+    });
+
+    it('rewinds every wizard step to its own fork\u2019s New Source button', () => {
+      // Closing the dialog strands them all in exactly the way it strands the picker.
+      for (const stage of OWN_DATA_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('own_data_ingest');
+      }
+      for (const stage of PIPELINE_WIZARD_STAGES) {
+        expect(getResumeAnchorStage(stage)).toBe('pipeline_ingest');
+      }
+    });
+  });
+
   describe('resume anchors', () => {
     it('rewinds each fork’s in-wizard stages to its own New Source step', () => {
       // Both targets live inside the add-source wizard, which a cold page load doesn't have
@@ -369,6 +445,14 @@ describe('insight-walkthrough-constants', () => {
       // The New Source stages themselves are reachable cold, so they resume as themselves.
       expect(getResumeAnchorStage('own_data_ingest')).toBe('own_data_ingest');
       expect(getResumeAnchorStage('pipeline_ingest')).toBe('pipeline_ingest');
+    });
+
+    it('resumes every KPI-drawer stage forward, at the dashboard nudge', () => {
+      // A reload closes the drawer and nothing on a cold /kpis reopens it. Looking at the KPI
+      // is the optional beat; the dashboard is what's still owed.
+      expect(getResumeAnchorStage('kpi_duration')).toBe('dashboard_nudge');
+      expect(getResumeAnchorStage('kpi_add_note')).toBe('dashboard_nudge');
+      expect(getResumeAnchorStage('kpi_close_drawer')).toBe('dashboard_nudge');
     });
 
     it('resumes the sidebar-anchored stages as themselves, wherever the user is', () => {
@@ -450,5 +534,83 @@ describe('insight-walkthrough-constants', () => {
     expect(order.indexOf('kpi_time_column')).toBeLessThan(order.indexOf('kpi_continue'));
     expect(order.indexOf('kpi_continue')).toBeLessThan(order.indexOf('kpi_type'));
     expect(isStageBefore('sample', 'kpi_time_column', 'kpi_continue')).toBe(true);
+  });
+
+  it('coaches step 3 in the order the step renders its fields', () => {
+    // RAG bands, then Program Tags, then KPI Type — the wizard's step-2 Continue lands on the
+    // first of them (see handleStep2Continue), and each hands to the next on "Got it".
+    const from = WALKTHROUGH_STAGE_ORDER.indexOf('kpi_continue');
+    expect(WALKTHROUGH_STAGE_ORDER.slice(from, from + 5)).toEqual([
+      'kpi_continue',
+      'kpi_thresholds',
+      'kpi_program_tags',
+      'kpi_type',
+      'kpi_submit',
+    ]);
+    // Both live inside the KPI dialog, so a cold load has to re-enter at the button that opens
+    // it rather than waiting on a field nobody can see.
+    expect(getResumeAnchorStage('kpi_thresholds')).toBe('kpi_intro');
+    expect(getResumeAnchorStage('kpi_program_tags')).toBe('kpi_intro');
+  });
+
+  describe('the Google Sheets configure step', () => {
+    it('coaches sign-in, then the Picker, then the wizard’s Next button', () => {
+      expect(OWN_DATA_WIZARD_STAGES.slice(0, 3)).toEqual([
+        'own_data_sheet_auth',
+        'own_data_sheet_picker',
+        'own_data_config_next',
+      ]);
+      expect(PIPELINE_WIZARD_STAGES.slice(0, 3)).toEqual([
+        'pipeline_sheet_auth',
+        'pipeline_sheet_picker',
+        'pipeline_config_next',
+      ]);
+    });
+
+    it('enters the configure step at sign-in on both forks', () => {
+      expect(WIZARD_CONFIG_ENTRY_STAGE_FOR.own_data_source_next).toBe('own_data_sheet_auth');
+      expect(WIZARD_CONFIG_ENTRY_STAGE_FOR.pipeline_source_next).toBe('pipeline_sheet_auth');
+    });
+
+    it('sends a real pick to the wizard’s Next button, from either configure stage', () => {
+      // Keyed from the sign-in stage too: a run that never registered the button click is
+      // still a run that has just picked a sheet.
+      expect(SHEET_PICKED_STAGE_FOR.own_data_sheet_auth).toBe('own_data_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.own_data_sheet_picker).toBe('own_data_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.pipeline_sheet_auth).toBe('pipeline_config_next');
+      expect(SHEET_PICKED_STAGE_FOR.pipeline_sheet_picker).toBe('pipeline_config_next');
+    });
+
+    it('maps a stored "paste your sheet link" stage forward to sign-in', () => {
+      // That field belongs to the service-account route alone, so the stage is retired rather
+      // than reworded. Without the forward map a resumed run lands on a stage with no coachmark
+      // and the walkthrough reads as dead.
+      setWalkthroughScope(USER_A, ORG_A);
+      localStorage.setItem(
+        `dalgo_insight_walkthrough_stage_insights_${USER_A}_${ORG_A}`,
+        'own_data_sheet_link'
+      );
+      expect(getStoredWalkthroughStage('insights')).toBe('own_data_sheet_auth');
+
+      localStorage.setItem(
+        `dalgo_insight_walkthrough_stage_automate_pipeline_${USER_A}_${ORG_A}`,
+        'pipeline_sheet_link'
+      );
+      expect(getStoredWalkthroughStage('automate_pipeline')).toBe('pipeline_sheet_auth');
+    });
+
+    it('rewinds both new configure stages to the fork’s ingest step on a cold load', () => {
+      // Both are inside the add-source wizard dialog, which a reload closes.
+      expect(getResumeAnchorStage('own_data_sheet_auth')).toBe('own_data_ingest');
+      expect(getResumeAnchorStage('own_data_sheet_picker')).toBe('own_data_ingest');
+      expect(getResumeAnchorStage('pipeline_sheet_picker')).toBe('pipeline_ingest');
+    });
+
+    it('counts the Picker stage as part of ingest, so the sync checkpoint watches it', () => {
+      expect(INGEST_STAGES).toContain('own_data_sheet_picker');
+      expect(INGEST_STAGES).toContain('pipeline_sheet_picker');
+      expect(CONNECTION_WATCH_STAGES).toContain('own_data_sheet_picker');
+      expect(isWizardCoachedStage('own_data_sheet_picker')).toBe(true);
+    });
   });
 });

@@ -13,15 +13,16 @@ export function useConnectionsList() {
     {
       revalidateOnFocus: false,
       refreshInterval: (latestData) => {
-        const connections = latestData as Connection[] | undefined;
-        if (connections?.some((c) => c.lock !== null)) {
+        // Array.isArray, not a cast — api.ts can resolve with an `{ error }` object.
+        const connections = Array.isArray(latestData) ? (latestData as Connection[]) : [];
+        if (connections.some((c) => c.lock !== null)) {
           return 3000;
         }
         return 0;
       },
     }
   );
-  return { data: data || [], isLoading, isError: error, mutate };
+  return { data: Array.isArray(data) ? data : [], isLoading, isError: error, mutate };
 }
 
 /** Single connection detail */
@@ -41,7 +42,7 @@ export function useSchemaChanges() {
     apiGet,
     { revalidateOnFocus: false }
   );
-  return { data: data || [], isLoading, isError: error, mutate };
+  return { data: Array.isArray(data) ? data : [], isLoading, isError: error, mutate };
 }
 
 /** Paginated sync history */

@@ -24,13 +24,13 @@ import type { Warehouse } from '@/types/warehouse';
 
 /**
  * Compact top-right chip showing the org's single warehouse. It links out to the
- * warehouse's home in Settings (Settings → Warehouse), where it can be viewed,
- * edited, or deleted — the warehouse is org infrastructure, not an ingest concern.
+ * warehouse's home in Settings (Settings → Data → Warehouse), where it can be
+ * viewed, edited, or deleted — the warehouse is org infrastructure, not an ingest concern.
  */
 function WarehouseChip({ warehouse }: { warehouse: Warehouse }) {
   return (
     <Link
-      href="/settings/warehouse"
+      href="/settings/data"
       className="group inline-flex items-center gap-1.5 text-sm leading-none cursor-pointer"
       data-testid="warehouse-chip"
     >

@@ -1,8 +1,8 @@
 import React from 'react';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestWrapper } from '@/test-utils/render';
-import { mockApiGet } from '@/test-utils/api';
+import { mockApiGet, mockApiPut } from '@/test-utils/api';
 import {
   saveTourProgress,
   getPendingPostTourScreen,
@@ -23,6 +23,11 @@ import {
 import { SyncStatus } from '@/constants/connections';
 import { useInsightWalkthroughStore } from '@/stores/insightWalkthroughStore';
 import { TourGate } from '../tour-gate';
+
+let mockImpactPageReady = true;
+jest.mock('../onboarding-route-readiness', () => ({
+  useImpactPageReady: () => mockImpactPageReady,
+}));
 
 // ============ Mocks ============
 
@@ -150,6 +155,16 @@ const mockWalkthroughState = (trial_walkthrough: Record<string, unknown>) =>
  */
 const suppressIntentModal = () => markIntentModalShownThisSession('trial-org');
 
+/**
+ * Puts the Get Started panel on screen. It no longer opens just because the user is on
+ * /impact (DALGO-1763) — only an explicit auto-open trigger or the pill does that — so a test
+ * that needs the panel's contents asks for it the way a user would.
+ */
+const openGetStartedPanel = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByTestId('getting-started-widget-pill'));
+  return screen.findByTestId('getting-started-widget');
+};
+
 // ============ Tests ============
 
 describe('TourGate', () => {
@@ -160,6 +175,7 @@ describe('TourGate', () => {
     // test to open it suppresses it for every test after.
     sessionStorage.clear();
     mockPathname = '/impact';
+    mockImpactPageReady = true;
     mockTourProps.current = null;
     // The walkthrough store is module state and outlives a test. A live flow left behind
     // suppresses the intent modal (it owns the screen) for every test after, so reset it here
@@ -216,9 +232,37 @@ describe('TourGate', () => {
     // findBy: the modal now waits on the backend trial_walkthrough gate before opening.
     expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
     expect(screen.getByText('What brings you to Dalgo')).toBeInTheDocument();
-    expect(screen.getByTestId('getting-started-widget')).toBeInTheDocument();
-    // The tour is offered as the panel's "Take a 2 min tour" link, not a checklist item.
-    expect(screen.getByTestId('getting-started-widget-tour-link')).toBeInTheDocument();
+    // The pill is there behind it, but the panel stays shut: this modal IS the landing
+    // prompt, and stacking the checklist under it was the double-prompt users complained of.
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+  });
+
+  it('waits for the mounted /impact page before opening or consuming the session slot', async () => {
+    mockImpactPageReady = false;
+    setupAuthStore(buildOrgUser());
+    const view = renderGate();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    expect(hasShownIntentModalThisSession('trial-org')).toBe(false);
+    expect(hasSeenIntentModal('trial-org')).toBe(false);
+
+    mockImpactPageReady = true;
+    view.rerender(
+      <TestWrapper>
+        <TourGate />
+      </TestWrapper>
+    );
+
+    expect(await screen.findByTestId('tour-intent-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    // Opening still records nothing; only a deliberate dismissal does.
+    expect(hasShownIntentModalThisSession('trial-org')).toBe(false);
+    expect(hasSeenIntentModal('trial-org')).toBe(false);
   });
 
   it('greets a returning user with the days left, not the first-visit question', async () => {
@@ -244,7 +288,10 @@ describe('TourGate', () => {
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    // Nothing pops: not the modal (session slot used) and not the panel, which now waits to
+    // be earned. The pill is the only affordance left.
+    expect(await screen.findByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
     expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
   });
 
@@ -258,7 +305,7 @@ describe('TourGate', () => {
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(await screen.findByTestId('getting-started-widget-pill')).toBeInTheDocument();
     expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
   });
 
@@ -311,7 +358,7 @@ describe('TourGate', () => {
     setupAuthStore(buildOrgUser({ plan_end_date: planEndDateWithDaysLeft(1) }));
     renderGate();
 
-    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(await screen.findByTestId('getting-started-widget-pill')).toBeInTheDocument();
     expect(screen.queryByTestId('tour-intent-modal')).not.toBeInTheDocument();
   });
 
@@ -392,14 +439,27 @@ describe('TourGate', () => {
     expect(screen.queryByTestId('get-started-option-sample')).not.toBeInTheDocument();
   });
 
+  it('falls back to the fork when the stored stage is one this build cannot draw', async () => {
+    // A retired stage id used to resume "successfully" into a stage with no coachmark, which
+    // also stopped the fork being offered. Known retirements are mapped forward; the rest land here.
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    savePath('insights', 'sample');
+    saveWalkthroughStage('insights', 'a_stage_that_no_longer_exists' as never);
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+  });
+
   it('hides the getting-started widget while the tour runs, and restores it when it ends', async () => {
     const user = userEvent.setup();
     suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
 
-    const pill = await screen.findByTestId('getting-started-widget-pill');
-    expect(pill).toBeInTheDocument();
+    await openGetStartedPanel(user);
 
     await user.click(screen.getByTestId('getting-started-widget-tour-link'));
 
@@ -412,6 +472,84 @@ describe('TourGate', () => {
     });
 
     expect(await screen.findByTestId('getting-started-widget-pill')).toBeInTheDocument();
+  });
+
+  describe('what auto-opens the Get Started panel', () => {
+    // DALGO-1763: it used to open on every arrival at /impact, so leaving anything at all put
+    // it straight back on screen. These are now the only three things that open it by itself.
+
+    it('opens it when the intent modal is dismissed without picking anything', async () => {
+      const user = userEvent.setup();
+      setupAuthStore(buildOrgUser());
+      renderGate();
+      await screen.findByTestId('tour-intent-modal');
+      expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+
+      // They asked for neither journey nor the tour, so the checklist is what's left.
+      expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    });
+
+    it('leaves it shut when a journey is picked from the intent modal', async () => {
+      // Picking a journey starts that flow — the panel opening over its first coachmark or
+      // dialog would be exactly the pop-up churn this change removes.
+      const user = userEvent.setup();
+      setupAuthStore(buildOrgUser());
+      renderGate();
+
+      await user.click(await screen.findByTestId('tour-intent-option-insight'));
+
+      await screen.findByTestId('get-started-option-sample');
+      expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    });
+
+    it('opens it when the tour is finished with no journey left to offer', async () => {
+      mockWalkthroughState({
+        insights: { skipped: false, completed: true },
+        automate_pipeline: { skipped: false, completed: true },
+      });
+      setupAuthStore(buildOrgUser());
+      renderGate();
+      await screen.findByTestId('getting-started-widget-pill');
+
+      await act(async () => {
+        mockTourProps.current?.onTourEnd?.('completed');
+      });
+
+      expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    });
+
+    it('leaves it shut when the tour hands over to the journey chooser instead', async () => {
+      // Both flows still open, so ProductTour calls onOfferPostTourChoice — that dialog is the
+      // follow-up, and the panel would only stack behind it.
+      suppressIntentModal();
+      setupAuthStore(buildOrgUser());
+      renderGate();
+      await screen.findByTestId('getting-started-widget-pill');
+
+      await act(async () => {
+        mockTourProps.current?.onTourEnd?.('completed');
+      });
+
+      expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    });
+
+    it('leaves it shut when the tour is exited by the ✕', async () => {
+      mockWalkthroughState({
+        insights: { skipped: false, completed: true },
+        automate_pipeline: { skipped: false, completed: true },
+      });
+      setupAuthStore(buildOrgUser());
+      renderGate();
+      await screen.findByTestId('getting-started-widget-pill');
+
+      await act(async () => {
+        mockTourProps.current?.onTourEnd?.('skipped');
+      });
+
+      expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
+    });
   });
 
   it('stops offering the post-tour choice once BOTH insight flows are completed', async () => {
@@ -622,6 +760,7 @@ describe('TourGate', () => {
     suppressIntentModal();
     setupAuthStore(buildOrgUser());
     renderGate();
+    await openGetStartedPanel(user);
 
     await user.click(screen.getByTestId('getting-started-widget-tour-link'));
 
@@ -633,6 +772,10 @@ describe('TourGate', () => {
    * the backend fetch resolving, not on synchronous localStorage.
    */
   const expectTick = async (key: string, checked: boolean) => {
+    // Rows only exist while the panel is open, and it no longer opens on its own here.
+    if (!screen.queryByTestId('getting-started-widget')) {
+      fireEvent.click(await screen.findByTestId('getting-started-widget-pill'));
+    }
     await waitFor(async () => {
       const row = await screen.findByTestId(`getting-started-widget-item-${key}`);
       if (checked) {
@@ -777,7 +920,18 @@ describe('TourGate — Get Started checklist actions', () => {
    * the row can be mid-unmount if clicked straight after render.
    */
   const clickChecklistRow = async (user: ReturnType<typeof userEvent.setup>, key: string) => {
-    await user.click(await screen.findByTestId('getting-started-widget-pill'));
+    const pill = await screen.findByTestId('getting-started-widget-pill');
+    // Normalise to closed first. Some scenarios start open from the route while an
+    // interrupted-flow resume effect is still settling; a close/open cycle ensures the
+    // row is not clicked during that transition now that the pill is a real toggle.
+    if (screen.queryByTestId('getting-started-widget')) {
+      await user.click(screen.getByTestId('getting-started-widget-minimize'));
+      await waitFor(() =>
+        expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument()
+      );
+    }
+    await user.click(pill);
+    await screen.findByTestId('getting-started-widget');
     await user.click(await screen.findByTestId(`getting-started-widget-item-${key}`));
   };
   const clickBuildInsight = (user: ReturnType<typeof userEvent.setup>) =>
@@ -830,7 +984,9 @@ describe('TourGate — Get Started checklist actions', () => {
     expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
   });
 
-  it('opens it on a skip too — the run is over either way', async () => {
+  it('leaves the panel closed on a skip — skipping means "not now"', async () => {
+    // Popping open the panel the user just skipped a walkthrough from reads as the app arguing
+    // back. The pill stays available for whenever they do want it.
     mockPathname = '/dashboards/12';
     setupAuthStore(buildOrgUser());
     renderGate();
@@ -847,7 +1003,8 @@ describe('TourGate — Get Started checklist actions', () => {
       useInsightWalkthroughStore.getState().skip();
     });
 
-    expect(await screen.findByTestId('getting-started-widget')).toBeInTheDocument();
+    expect(screen.getByTestId('getting-started-widget-pill')).toBeInTheDocument();
+    expect(screen.queryByTestId('getting-started-widget')).not.toBeInTheDocument();
   });
 
   it('"Build your first insight" opens the fork dialog when no fork has been picked', async () => {
@@ -1264,6 +1421,65 @@ describe('TourGate — Get Started checklist actions', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it('re-offers the fork after an explicit exit, even with real data already connected', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    // Picked own-data, connected a source, then answered "Exit walkthrough" on the leave
+    // prompt — which clears the stage but keeps the milestone. An intentional exit resets the
+    // flow, so the next start asks the fork question again rather than fast-forwarding to the
+    // chart tail off the back of work done in the run they just quit.
+    savePath('insights', 'own_data');
+    markConnectedRealData();
+    renderGate();
+
+    await clickBuildInsight(user);
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+    expect(useInsightWalkthroughStore.getState().stage).toBe('fork2');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('asks the fork again after exiting the chart-tail entry it fast-forwarded into', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    // The full round trip: data already in the platform, so the first click skips the fork and
+    // opens on the chart tail. Exiting THAT run resets the flow, so the second click must ask
+    // the question again rather than dropping the user back on the chart step it just quit.
+    //
+    // The backend record has to behave like the real one here: skip() persists the outcome and
+    // only then drops the flow's localStorage, so a static mock would leave NO trace of the
+    // exit anywhere and the assertion would pass or fail for the wrong reason.
+    const trial: Record<string, { skipped: boolean; completed: boolean }> = {};
+    mockApiGet.mockImplementation((path: string) =>
+      path === '/api/userpreferences/'
+        ? Promise.resolve({ success: true, res: { trial_walkthrough: { ...trial } } })
+        : undefined
+    );
+    mockApiPut.mockImplementation((path: string, body: Record<string, unknown>) => {
+      if (path === '/api/userpreferences/trial-walkthrough') {
+        trial[body.flow as string] = {
+          skipped: Boolean(body.skipped),
+          completed: Boolean(body.completed),
+        };
+      }
+      return Promise.resolve({ success: true });
+    });
+    markConnectedRealData();
+    renderGate();
+
+    await clickBuildInsight(user);
+    expect(useInsightWalkthroughStore.getState().stage).toBe('chart_intro');
+
+    await act(async () => {
+      useInsightWalkthroughStore.getState().skip();
+    });
+
+    await clickBuildInsight(user);
+
+    expect(await screen.findByTestId('get-started-option-sample')).toBeInTheDocument();
+    expect(useInsightWalkthroughStore.getState().stage).toBe('fork2');
+  });
+
   it('"Setup an automated data pipeline" starts that flow outright — it has no fork', async () => {
     const user = userEvent.setup();
     setupAuthStore(buildOrgUser());
@@ -1276,6 +1492,41 @@ describe('TourGate — Get Started checklist actions', () => {
     // clicks Ingest. Pushing them onto /ingest moved them somewhere they hadn't asked to go.
     expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest_nudge');
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('restarts the pipeline flow from its first step after an explicit exit', async () => {
+    const user = userEvent.setup();
+    setupAuthStore(buildOrgUser());
+    // Started it, connected a source, then answered "Exit walkthrough". Same rule as the
+    // insight fork: an intentional exit resets THAT flow, so the row starts it over with its
+    // coachmarks instead of dropping the user on the next milestone-derived page alone.
+    savePath('automate_pipeline', 'automate_pipeline');
+    markConnectedRealData();
+    renderGate();
+
+    await clickChecklistRow(user, 'automate-pipeline');
+
+    expect(useInsightWalkthroughStore.getState().stage).toBe('pipeline_ingest_nudge');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not restart a completed pipeline flow — it just navigates', async () => {
+    const user = userEvent.setup();
+    // finish() clears the stage too, so a completed flow looks like an exited one in
+    // localStorage alone. The backend record is the difference: nobody wants the whole
+    // walkthrough again. Driven through the intent modal because the checklist renders a
+    // completed row as a plain div — the widget offers no way back into a finished flow.
+    mockWalkthroughState({ automate_pipeline: { skipped: false, completed: true } });
+    sessionStorage.clear();
+    setupAuthStore(buildOrgUser());
+    savePath('automate_pipeline', 'automate_pipeline');
+    markConnectedRealData();
+    renderGate();
+
+    await user.click(await screen.findByTestId('tour-intent-option-pipeline'));
+
+    expect(useInsightWalkthroughStore.getState().active).toBe(false);
+    expect(mockPush).toHaveBeenCalled();
   });
 
   it('resumes an interrupted pipeline flow out of the canvas at its table-picking step', async () => {

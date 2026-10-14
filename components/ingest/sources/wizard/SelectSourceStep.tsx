@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import {
   SOURCE_NEXT_STAGE_FOR,
 } from '@/components/onboarding/insight-walkthrough-constants';
 import type { SourceDefinition } from '@/types/source';
-import { TOP_SOURCES, MAX_TOP_CARDS } from './wizard-state';
+import { TOP_SOURCES } from './wizard-state';
 
 interface Props {
   onSelect: (def: SourceDefinition) => void;
@@ -22,7 +22,9 @@ interface Props {
 export function SelectSourceStep({ onSelect, onClose }: Props) {
   const { data: definitions } = useSourceDefinitions();
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selected, setSelected] = useState<SourceDefinition | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Onboarding walkthrough checkpoint (own-data / automate-pipeline forks): this step being
   // on screen is what unlocks the "pick Google Sheets" coachmark, which points at a card in
@@ -34,6 +36,17 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
     const walkthrough = useInsightWalkthroughStore.getState();
     const pickSourceStage = walkthrough.stage ? PICK_SOURCE_STAGE_FOR[walkthrough.stage] : null;
     if (pickSourceStage) walkthrough.advanceIfBefore(pickSourceStage);
+  }, []);
+
+  useEffect(() => {
+    const closeSearchWhenClickingOutside = (event: PointerEvent) => {
+      if (!searchContainerRef.current?.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', closeSearchWhenClickingOutside);
+    return () => document.removeEventListener('pointerdown', closeSearchWhenClickingOutside);
   }, []);
 
   // Match the popular-source names to live definitions; drop any the deployment lacks.
@@ -49,19 +62,15 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
           definitions.find((d) => d.name.toLowerCase() === q) ??
           definitions.find((d) => d.name.toLowerCase().includes(q));
         return { top: t, def };
-      })
-        .filter((c) => c.def)
-        .slice(0, MAX_TOP_CARDS),
+      }).filter((c) => c.def),
     [definitions]
   );
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return [];
     return [...definitions]
-      .filter((d) => d.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 20);
+      .filter((d) => !q || d.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [definitions, search]);
 
   const isSelected = (def: SourceDefinition) =>
@@ -76,6 +85,7 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
    */
   const select = (def: SourceDefinition) => {
     setSelected(def);
+    setSearchOpen(false);
     const walkthrough = useInsightWalkthroughStore.getState();
     const nextStage = walkthrough.stage ? SOURCE_NEXT_STAGE_FOR[walkthrough.stage] : null;
     if (nextStage) walkthrough.advanceIfBefore(nextStage);
@@ -83,85 +93,114 @@ export function SelectSourceStep({ onSelect, onClose }: Props) {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col" data-testid="select-source-step">
-      {/* Fixed-height body so the modal doesn't grow/shrink with the number of
-          search results — the popular grid and the results list scroll inside. */}
-      <div
-        className="h-[280px] overflow-y-auto px-6 py-5 space-y-5"
-        data-testid="source-picker-body"
-      >
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="h-[340px] overflow-y-auto px-6 py-5" data-testid="source-picker-body">
+        <p className="mb-3 text-sm text-muted-foreground">
+          Search across 600+ connectors, or choose a popular source below.
+        </p>
+
+        <div className="relative z-20" ref={searchContainerRef}>
+          <Search
+            className="pointer-events-none absolute left-3 top-[22px] -translate-y-1/2 h-4 w-4 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
             data-testid="source-search-input"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search all sources..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSearchOpen(true);
+            }}
+            // Click and typing open the catalog; FOCUS deliberately does not. The dialog
+            // autofocuses its first field, so opening on focus dropped the 600-connector list
+            // over the popular-source cards the moment the step mounted — before the user had
+            // asked for anything.
+            onClick={() => setSearchOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setSearchOpen(false);
+            }}
+            placeholder="Search sources..."
             className="pl-9"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={searchOpen}
+            aria-controls="source-search-results"
           />
+
+          {searchOpen && (
+            <ul
+              id="source-search-results"
+              role="listbox"
+              className="absolute left-0 right-0 top-full mt-2 max-h-56 overflow-y-auto divide-y rounded-md border bg-popover text-popover-foreground shadow-lg"
+              data-testid="source-search-results"
+            >
+              {searchResults.length > 0 ? (
+                searchResults.map((def) => (
+                  <li key={def.sourceDefinitionId} role="option" aria-selected={isSelected(def)}>
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted focus:bg-muted focus:outline-none',
+                        isSelected(def) && 'bg-primary/5'
+                      )}
+                      data-testid={`source-search-result-${def.name}`}
+                      onClick={() => select(def)}
+                    >
+                      {/* Connector artwork is supplied at runtime by Airbyte, so it cannot
+                          use Next Image's static/allow-listed source optimization. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={def.icon || '/icons/connection.svg'}
+                        alt=""
+                        className="h-6 w-6 flex-shrink-0 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = '/icons/connection.svg';
+                        }}
+                      />
+                      <span className="truncate text-sm">{def.name}</span>
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className="px-3 py-4 text-center text-sm text-muted-foreground">
+                  No matching source found
+                </li>
+              )}
+            </ul>
+          )}
         </div>
 
-        {search ? (
-          <ul className="divide-y rounded-md border">
-            {searchResults.map((def) => (
-              <li key={def.sourceDefinitionId}>
-                <button
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted',
-                    isSelected(def) && 'bg-primary/5'
-                  )}
-                  data-testid={`source-search-result-${def.name}`}
-                  onClick={() => select(def)}
-                >
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Popular quick connects
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {topCards.map(({ top, def }) => (
+              <button
+                key={top.name}
+                type="button"
+                data-testid={`source-card-${top.name}`}
+                onClick={() => select(def!)}
+                className={cn(
+                  'flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition-colors hover:border-primary hover:bg-muted/40',
+                  isSelected(def!) && 'border-primary ring-1 ring-primary bg-primary/5'
+                )}
+              >
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border bg-background p-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={def.icon || '/icons/connection.svg'}
+                    src={def!.icon || '/icons/connection.svg'}
                     alt=""
-                    className="h-5 w-5"
+                    className="h-full w-full object-contain"
                     onError={(e) => {
                       e.currentTarget.src = '/icons/connection.svg';
                     }}
                   />
-                  <span className="text-sm">{def.name}</span>
-                </button>
-              </li>
+                </div>
+                <span className="min-w-0 truncate text-sm font-semibold">{top.name}</span>
+              </button>
             ))}
-          </ul>
-        ) : (
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Popular sources
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {topCards.map(({ top, def }) => (
-                <button
-                  key={top.name}
-                  type="button"
-                  data-testid={`source-card-${top.name}`}
-                  onClick={() => select(def!)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-muted/40',
-                    isSelected(def!) && 'border-primary ring-1 ring-primary bg-primary/5'
-                  )}
-                >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border bg-background">
-                    <img
-                      src={def!.icon || '/icons/connection.svg'}
-                      alt=""
-                      className="h-6 w-6"
-                      onError={(e) => {
-                        e.currentTarget.src = '/icons/connection.svg';
-                      }}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{top.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{top.category}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div className="flex flex-shrink-0 justify-end gap-2 border-t px-6 py-4">

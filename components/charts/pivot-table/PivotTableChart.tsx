@@ -362,10 +362,11 @@ export default function PivotTableChart({
   if (!grid.rows || grid.rows.length === 0) {
     return (
       <div
-        className="flex items-center justify-center h-full text-muted-foreground"
+        className="flex flex-col items-center justify-center h-full text-center text-muted-foreground"
         data-testid="pivot-table-empty"
       >
-        No data available
+        <p className="text-foreground">No data for the selected filters</p>
+        <p className="text-sm mt-2">Try removing a filter or choosing different values.</p>
       </div>
     );
   }
