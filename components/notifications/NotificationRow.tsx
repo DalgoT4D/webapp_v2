@@ -6,6 +6,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import type { Notification } from '@/types/notifications';
 import { MESSAGE_TRUNCATE_LENGTH } from '@/constants/notifications';
 import { cn } from '@/lib/utils';
+import { renderMessageWithLinks } from '@/lib/notificationMessage';
 
 interface NotificationRowProps {
   notification: Notification;
@@ -13,30 +14,6 @@ interface NotificationRowProps {
   isExpanded: boolean;
   onSelect: (id: number, checked: boolean) => void;
   onToggleExpand: (id: number) => void;
-}
-
-// Helper to render message with clickable links
-function renderMessageWithLinks(message: string): React.ReactNode {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = message.split(urlRegex);
-
-  return parts.map((part, index) => {
-    if (/^https?:\/\/[^\s]+$/.test(part)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-teal-600 hover:text-teal-700 hover:underline break-all"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
 }
 
 export function NotificationRow({
